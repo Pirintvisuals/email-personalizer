@@ -1,28 +1,10 @@
-# Environment / secrets
+# Secrets — never commit
 .env
-config.local.py
 
-# Uploaded & generated files
-uploads/
-outputs/
-server.log
-*.log
-
-# Python
+# Python bytecode
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
-.Python
-*.egg-info/
-dist/
-build/
-.venv/
-venv/
-env/
-
-# Claude
-.claude/
 
 # OS
 .DS_Store
