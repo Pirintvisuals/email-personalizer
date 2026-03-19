@@ -449,8 +449,10 @@ def download(filename: str):
 # ─── ENTRY POINT ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    host = "0.0.0.0" if os.environ.get("PORT") else "127.0.0.1"
     print("\n" + "="*55)
     print("  Landscaper Email Campaign Generator")
-    print("  Running at http://127.0.0.1:5000")
+    print(f"  Running at http://{host}:{port}")
     print("="*55 + "\n")
-    app.run(debug=False, host="127.0.0.1", port=5000)
+    app.run(debug=False, host=host, port=port)
