@@ -209,40 +209,47 @@ def generate_emails(company: str, contact: str, site_data: dict) -> dict:
 
 # ─── EXCEL I/O ─────────────────────────────────────────────────────────────────
 
-def read_excel(path: str) -> list[dict]:
+def get_excel_headers(path: str) -> dict:
+    """Return headers and a sample row for column mapping UI."""
     wb = openpyxl.load_workbook(path)
     ws = wb.active
     rows = list(ws.iter_rows(values_only=True))
     if not rows:
         raise ValueError("File is empty")
-    header = [str(c).strip().lower() if c else "" for c in rows[0]]
-    col_map = {}
-    for i, h in enumerate(header):
-        if any(k in h for k in ["company", "business"]) and "contact" not in h:
-            col_map.setdefault("company", i)
-        elif any(k in h for k in ["contact", "first name", "person"]):
-            col_map.setdefault("contact", i)
-        elif any(k in h for k in ["website", "url", "web", "site"]):
-            col_map.setdefault("website", i)
-        elif any(k in h for k in ["phone", "tel", "mobile", "cell"]):
-            col_map.setdefault("phone", i)
-    # fallback positional
-    if "company"  not in col_map: col_map["company"]  = 0
-    if "contact"  not in col_map: col_map["contact"]  = 1
-    if "website"  not in col_map: col_map["website"]  = 2
-    if "phone"    not in col_map: col_map["phone"]    = 3
+    headers = [str(c).strip() if c is not None else "" for c in rows[0]]
+    sample  = [str(c).strip() if c is not None else "" for c in (rows[1] if len(rows) > 1 else [])]
+    # Auto-detect best guess for each field
+    guesses = {}
+    for i, h in enumerate(headers):
+        hl = h.lower()
+        if any(k in hl for k in ["company", "business", "name"]) and "contact" not in hl:
+            guesses.setdefault("company", i)
+        elif any(k in hl for k in ["contact", "first name", "person"]):
+            guesses.setdefault("contact", i)
+        elif any(k in hl for k in ["website", "url", "web", "site"]):
+            guesses.setdefault("website", i)
+        elif any(k in hl for k in ["phone", "tel", "mobile", "cell"]):
+            guesses.setdefault("phone", i)
+    return {"headers": headers, "sample": sample, "guesses": guesses, "total": len(rows) - 1}
 
+
+def read_excel(path: str, col_map: dict) -> list[dict]:
+    """Read excel with an explicit col_map {company, contact, website, phone} -> int index."""
+    wb = openpyxl.load_workbook(path)
+    ws = wb.active
+    rows = list(ws.iter_rows(values_only=True))
     records = []
     for row in rows[1:]:
         if all(c is None or str(c).strip() == "" for c in row):
             continue
         def safe(idx):
+            if idx is None or idx < 0: return ""
             return str(row[idx]).strip() if idx < len(row) and row[idx] is not None else ""
         records.append({
-            "Company Name": safe(col_map["company"]),
-            "Contact Name": safe(col_map["contact"]),
-            "Website URL":  safe(col_map["website"]),
-            "Phone Number": safe(col_map["phone"]),
+            "Company Name": safe(col_map.get("company")),
+            "Contact Name": safe(col_map.get("contact")),
+            "Website URL":  safe(col_map.get("website")),
+            "Phone Number": safe(col_map.get("phone")),
         })
     return records
 
@@ -288,7 +295,7 @@ def write_excel(records: list[dict], output_path: str):
 
 # ─── BACKGROUND WORKER ─────────────────────────────────────────────────────────
 
-def process_job(job_id: str, input_path: str):
+def process_job(job_id: str, input_path: str, col_map: dict):
     def log(msg: str):
         with jobs_lock:
             jobs[job_id]["log"].append(msg)
@@ -298,7 +305,7 @@ def process_job(job_id: str, input_path: str):
             jobs[job_id]["progress"] = n
 
     try:
-        records = read_excel(input_path)
+        records = read_excel(input_path, col_map)
         total = len(records)
         with jobs_lock:
             jobs[job_id]["total"] = total
@@ -364,17 +371,45 @@ def index():
 
 @app.route("/upload", methods=["POST"])
 def upload():
+    """Step 1: save file, return headers for column mapping."""
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
     f = request.files["file"]
     if not f.filename.endswith((".xlsx", ".xls")):
         return jsonify({"error": "Please upload an Excel file (.xlsx or .xls)"}), 400
 
-    job_id = str(uuid.uuid4())
-    filename = f"input_{job_id}.xlsx"
+    file_id = str(uuid.uuid4())
+    filename = f"input_{file_id}.xlsx"
     input_path = os.path.join(UPLOAD_DIR, filename)
     f.save(input_path)
 
+    try:
+        info = get_excel_headers(input_path)
+    except Exception as e:
+        os.remove(input_path)
+        return jsonify({"error": str(e)}), 400
+
+    return jsonify({"file_id": file_id, **info})
+
+
+@app.route("/start", methods=["POST"])
+def start():
+    """Step 2: receive confirmed column mapping, kick off processing."""
+    data = request.get_json()
+    file_id  = data.get("file_id")
+    col_map  = data.get("col_map")   # {company, contact, website, phone} -> int
+
+    if not file_id or not col_map:
+        return jsonify({"error": "Missing file_id or col_map"}), 400
+
+    input_path = os.path.join(UPLOAD_DIR, f"input_{file_id}.xlsx")
+    if not os.path.isfile(input_path):
+        return jsonify({"error": "File not found — please re-upload"}), 404
+
+    # Convert col_map values to int
+    col_map = {k: int(v) for k, v in col_map.items() if v is not None and v != ""}
+
+    job_id = str(uuid.uuid4())
     with jobs_lock:
         jobs[job_id] = {
             "status": "running",
@@ -384,9 +419,8 @@ def upload():
             "output_file": None,
         }
 
-    thread = threading.Thread(target=process_job, args=(job_id, input_path), daemon=True)
+    thread = threading.Thread(target=process_job, args=(job_id, input_path, col_map), daemon=True)
     thread.start()
-
     return jsonify({"job_id": job_id})
 
 

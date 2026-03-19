@@ -18,237 +18,149 @@
       padding: 40px 20px 60px;
     }
 
-    /* ── Header ── */
-    .header {
-      text-align: center;
-      margin-bottom: 40px;
-    }
-    .header .logo {
-      font-size: 2.8rem;
-      margin-bottom: 10px;
-    }
+    .header { text-align: center; margin-bottom: 40px; }
+    .header .logo { font-size: 2.8rem; margin-bottom: 10px; }
     .header h1 {
-      font-size: 1.9rem;
-      font-weight: 700;
+      font-size: 1.9rem; font-weight: 700;
       background: linear-gradient(135deg, #4ade80, #22d3ee);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
-    .header p {
-      color: #8b9cb8;
-      margin-top: 8px;
-      font-size: 0.95rem;
-    }
+    .header p { color: #8b9cb8; margin-top: 8px; font-size: 0.95rem; }
 
-    /* ── Card ── */
     .card {
-      background: #1a1d27;
-      border: 1px solid #2a2f42;
-      border-radius: 16px;
-      padding: 36px;
-      width: 100%;
-      max-width: 700px;
+      background: #1a1d27; border: 1px solid #2a2f42;
+      border-radius: 16px; padding: 36px; width: 100%; max-width: 700px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     }
 
-    /* ── Steps ── */
-    .steps {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 28px;
-      flex-wrap: wrap;
-    }
+    .steps { display: flex; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
     .step {
-      flex: 1;
-      min-width: 140px;
-      background: #12151e;
-      border: 1px solid #2a2f42;
-      border-radius: 10px;
-      padding: 14px 16px;
-      font-size: 0.82rem;
-      color: #8b9cb8;
+      flex: 1; min-width: 140px; background: #12151e;
+      border: 1px solid #2a2f42; border-radius: 10px;
+      padding: 14px 16px; font-size: 0.82rem; color: #8b9cb8;
     }
-    .step .step-num {
-      font-size: 1.2rem;
-      margin-bottom: 4px;
-    }
+    .step .step-num { font-size: 1.2rem; margin-bottom: 4px; }
     .step b { color: #c8d0e0; }
 
-    /* ── Upload zone ── */
     #drop-zone {
-      border: 2px dashed #2e3650;
-      border-radius: 12px;
-      padding: 40px 20px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color .2s, background .2s;
-      background: #12151e;
+      border: 2px dashed #2e3650; border-radius: 12px; padding: 40px 20px;
+      text-align: center; cursor: pointer;
+      transition: border-color .2s, background .2s; background: #12151e;
     }
-    #drop-zone:hover, #drop-zone.dragover {
-      border-color: #4ade80;
-      background: #0d1a10;
-    }
+    #drop-zone:hover, #drop-zone.dragover { border-color: #4ade80; background: #0d1a10; }
     #drop-zone .icon { font-size: 2.4rem; margin-bottom: 10px; }
     #drop-zone p { color: #8b9cb8; font-size: 0.9rem; }
     #drop-zone p span { color: #4ade80; font-weight: 600; }
     #file-input { display: none; }
-    #file-name {
-      margin-top: 12px;
-      font-size: 0.85rem;
-      color: #4ade80;
-      font-weight: 600;
-      min-height: 20px;
-    }
+    #file-name { margin-top: 12px; font-size: 0.85rem; color: #4ade80; font-weight: 600; min-height: 20px; }
 
-    /* ── Format hint ── */
-    .format-hint {
-      margin-top: 18px;
+    /* ── Column Mapping ── */
+    #mapping-panel {
+      display: none;
+      margin-top: 22px;
       background: #12151e;
       border: 1px solid #2a2f42;
-      border-radius: 8px;
-      padding: 12px 16px;
-      font-size: 0.8rem;
-      color: #8b9cb8;
+      border-radius: 12px;
+      padding: 20px;
     }
-    .format-hint b { color: #c8d0e0; }
-    .cols { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-    .col-tag {
-      background: #1e2436;
-      border: 1px solid #3a4160;
-      border-radius: 6px;
-      padding: 3px 10px;
-      font-size: 0.78rem;
-      color: #22d3ee;
+    #mapping-panel h3 { font-size: 0.95rem; color: #c8d0e0; margin-bottom: 6px; }
+    #mapping-panel p  { font-size: 0.8rem; color: #8b9cb8; margin-bottom: 16px; }
+    .map-row {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 12px;
     }
+    .map-label {
+      width: 130px; font-size: 0.83rem; font-weight: 600; color: #22d3ee; flex-shrink: 0;
+    }
+    .map-row select {
+      flex: 1; background: #1a1d27; border: 1px solid #3a4160;
+      border-radius: 7px; color: #e8eaf0; padding: 7px 10px; font-size: 0.82rem;
+      appearance: none; cursor: pointer;
+    }
+    .map-row select:focus { outline: none; border-color: #4ade80; }
+    .sample-val {
+      font-size: 0.75rem; color: #8b9cb8; font-family: monospace;
+      max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    #mapping-count { font-size: 0.8rem; color: #8b9cb8; margin-bottom: 14px; }
 
-    /* ── Button ── */
-    #start-btn {
-      width: 100%;
-      margin-top: 22px;
-      padding: 14px;
+    .btn-primary {
+      width: 100%; margin-top: 18px; padding: 14px;
       background: linear-gradient(135deg, #16a34a, #0891b2);
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      font-size: 1rem;
-      font-weight: 700;
-      cursor: pointer;
+      color: #fff; border: none; border-radius: 10px;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
       transition: opacity .2s, transform .1s;
     }
-    #start-btn:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
-    #start-btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primary:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
 
-    /* ── Progress panel ── */
-    #progress-panel {
-      display: none;
-      margin-top: 28px;
+    #upload-btn {
+      width: 100%; margin-top: 22px; padding: 14px;
+      background: linear-gradient(135deg, #16a34a, #0891b2);
+      color: #fff; border: none; border-radius: 10px;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+      transition: opacity .2s, transform .1s;
     }
+    #upload-btn:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
+    #upload-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    #progress-panel { display: none; margin-top: 28px; }
     .progress-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-      font-size: 0.88rem;
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px; font-size: 0.88rem;
     }
     .progress-header span { color: #8b9cb8; }
     .progress-header #pct { color: #4ade80; font-weight: 700; }
     .progress-bar-bg {
-      background: #12151e;
-      border-radius: 8px;
-      height: 10px;
-      overflow: hidden;
-      border: 1px solid #2a2f42;
+      background: #12151e; border-radius: 8px; height: 10px;
+      overflow: hidden; border: 1px solid #2a2f42;
     }
     #progress-bar {
-      height: 100%;
-      width: 0%;
+      height: 100%; width: 0%;
       background: linear-gradient(90deg, #16a34a, #22d3ee);
-      border-radius: 8px;
-      transition: width .4s ease;
+      border-radius: 8px; transition: width .4s ease;
     }
 
-    /* ── Log ── */
     #log-box {
-      margin-top: 18px;
-      background: #0a0c12;
-      border: 1px solid #1e2436;
-      border-radius: 10px;
-      padding: 16px;
-      height: 260px;
-      overflow-y: auto;
+      margin-top: 18px; background: #0a0c12; border: 1px solid #1e2436;
+      border-radius: 10px; padding: 16px; height: 260px; overflow-y: auto;
       font-family: "Cascadia Code", "Fira Code", "Courier New", monospace;
-      font-size: 0.78rem;
-      line-height: 1.6;
-      color: #a8b8d0;
+      font-size: 0.78rem; line-height: 1.6; color: #a8b8d0;
     }
-    #log-box .line-ok    { color: #4ade80; }
-    #log-box .line-warn  { color: #facc15; }
-    #log-box .line-err   { color: #f87171; }
-    #log-box .line-info  { color: #22d3ee; }
+    #log-box .line-ok   { color: #4ade80; }
+    #log-box .line-warn { color: #facc15; }
+    #log-box .line-err  { color: #f87171; }
+    #log-box .line-info { color: #22d3ee; }
 
-    /* ── Download ── */
-    #download-section {
-      display: none;
-      margin-top: 24px;
-      text-align: center;
-    }
+    #download-section { display: none; margin-top: 24px; text-align: center; }
     #download-btn {
-      display: inline-block;
-      padding: 13px 32px;
+      display: inline-block; padding: 13px 32px;
       background: linear-gradient(135deg, #16a34a, #0891b2);
-      color: #fff;
-      border-radius: 10px;
-      font-weight: 700;
-      font-size: 1rem;
-      text-decoration: none;
-      transition: opacity .2s;
+      color: #fff; border-radius: 10px; font-weight: 700;
+      font-size: 1rem; text-decoration: none; transition: opacity .2s;
     }
     #download-btn:hover { opacity: .85; }
-    #download-note {
-      font-size: 0.8rem;
-      color: #8b9cb8;
-      margin-top: 8px;
-    }
+    #download-note { font-size: 0.8rem; color: #8b9cb8; margin-top: 8px; }
 
-    /* ── Error banner ── */
     #error-banner {
-      display: none;
-      margin-top: 18px;
-      background: #2d1515;
-      border: 1px solid #7f1d1d;
-      border-radius: 8px;
-      padding: 12px 16px;
-      color: #fca5a5;
-      font-size: 0.85rem;
+      display: none; margin-top: 18px; background: #2d1515;
+      border: 1px solid #7f1d1d; border-radius: 8px;
+      padding: 12px 16px; color: #fca5a5; font-size: 0.85rem;
     }
 
-    /* ── Reset ── */
     #reset-btn {
-      display: none;
-      margin: 18px auto 0;
-      padding: 9px 22px;
-      background: transparent;
-      border: 1px solid #3a4160;
-      border-radius: 8px;
-      color: #8b9cb8;
-      cursor: pointer;
-      font-size: 0.85rem;
-      transition: border-color .2s, color .2s;
+      display: none; margin: 18px auto 0; padding: 9px 22px;
+      background: transparent; border: 1px solid #3a4160;
+      border-radius: 8px; color: #8b9cb8; cursor: pointer;
+      font-size: 0.85rem; transition: border-color .2s, color .2s;
     }
     #reset-btn:hover { border-color: #22d3ee; color: #22d3ee; }
 
-    /* ── Scrollbar ── */
     #log-box::-webkit-scrollbar { width: 5px; }
     #log-box::-webkit-scrollbar-track { background: transparent; }
     #log-box::-webkit-scrollbar-thumb { background: #2a2f42; border-radius: 3px; }
 
-    /* ── Footer ── */
-    .footer {
-      margin-top: 40px;
-      font-size: 0.75rem;
-      color: #3a4160;
-    }
+    .footer { margin-top: 40px; font-size: 0.75rem; color: #3a4160; }
   </style>
 </head>
 <body>
@@ -260,36 +172,54 @@
   </div>
 
   <div class="card">
-    <!-- Steps -->
     <div class="steps">
-      <div class="step"><div class="step-num">📂</div><b>Upload</b><br>Excel file with your landscapers</div>
-      <div class="step"><div class="step-num">🔍</div><b>Research</b><br>Each website is scraped live</div>
+      <div class="step"><div class="step-num">📂</div><b>Upload</b><br>Your leads Excel file</div>
+      <div class="step"><div class="step-num">🗂️</div><b>Map columns</b><br>Tell us which col is which</div>
       <div class="step"><div class="step-num">🤖</div><b>Generate</b><br>Gemini writes 3 unique emails</div>
       <div class="step"><div class="step-num">📥</div><b>Download</b><br>Ready-to-send Excel campaign</div>
     </div>
 
-    <!-- Upload -->
+    <!-- Step 1: Upload -->
     <div id="drop-zone" onclick="document.getElementById('file-input').click()">
       <div class="icon">📊</div>
       <p>Drop your Excel file here or <span>click to browse</span></p>
-      <p style="margin-top:4px;font-size:0.78rem;">Accepts .xlsx / .xls</p>
+      <p style="margin-top:4px;font-size:0.78rem;">Accepts .xlsx / .xls — any column layout</p>
       <div id="file-name"></div>
     </div>
     <input type="file" id="file-input" accept=".xlsx,.xls" />
 
-    <div class="format-hint">
-      <b>Required columns</b> (order doesn't matter, header names are flexible):
-      <div class="cols">
-        <span class="col-tag">Company Name</span>
-        <span class="col-tag">Contact Name</span>
-        <span class="col-tag">Website URL</span>
-        <span class="col-tag">Phone Number</span>
+    <button id="upload-btn" disabled>📤 Upload & Preview Columns</button>
+
+    <!-- Step 2: Column Mapping -->
+    <div id="mapping-panel">
+      <h3>Map your columns</h3>
+      <p>We detected these columns — confirm which is which before generating.</p>
+      <div id="mapping-count"></div>
+
+      <div class="map-row">
+        <div class="map-label">🏢 Company Name</div>
+        <select id="map-company"></select>
+        <div class="sample-val" id="sample-company"></div>
       </div>
+      <div class="map-row">
+        <div class="map-label">👤 Contact Name</div>
+        <select id="map-contact"></select>
+        <div class="sample-val" id="sample-contact"></div>
+      </div>
+      <div class="map-row">
+        <div class="map-label">🌐 Website URL</div>
+        <select id="map-website"></select>
+        <div class="sample-val" id="sample-website"></div>
+      </div>
+      <div class="map-row">
+        <div class="map-label">📞 Phone Number</div>
+        <select id="map-phone"></select>
+        <div class="sample-val" id="sample-phone"></div>
+      </div>
+
+      <button class="btn-primary" id="start-btn">⚡ Generate Campaign</button>
     </div>
 
-    <button id="start-btn" disabled>⚡ Generate Campaign</button>
-
-    <!-- Error -->
     <div id="error-banner"></div>
 
     <!-- Progress -->
@@ -298,9 +228,7 @@
         <span>Processing landscapers…</span>
         <span id="pct">0%</span>
       </div>
-      <div class="progress-bar-bg">
-        <div id="progress-bar"></div>
-      </div>
+      <div class="progress-bar-bg"><div id="progress-bar"></div></div>
       <div id="log-box"></div>
     </div>
 
@@ -319,18 +247,18 @@
   let selectedFile = null;
   let pollInterval = null;
   let lastLogCount = 0;
+  let fileId = null;
+  let allHeaders = [];
+  let sampleRow = [];
 
   // ── Drag & drop ──
   const dropZone = document.getElementById('drop-zone');
   dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
   dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    const f = e.dataTransfer.files[0];
-    if (f) setFile(f);
+    e.preventDefault(); dropZone.classList.remove('dragover');
+    const f = e.dataTransfer.files[0]; if (f) setFile(f);
   });
-
   document.getElementById('file-input').addEventListener('change', e => {
     if (e.target.files[0]) setFile(e.target.files[0]);
   });
@@ -338,16 +266,15 @@
   function setFile(f) {
     selectedFile = f;
     document.getElementById('file-name').textContent = '📎 ' + f.name;
-    document.getElementById('start-btn').disabled = false;
+    document.getElementById('upload-btn').disabled = false;
     hideError();
   }
 
-  // ── Start ──
-  document.getElementById('start-btn').addEventListener('click', async () => {
+  // ── Step 1: Upload → get headers ──
+  document.getElementById('upload-btn').addEventListener('click', async () => {
     if (!selectedFile) return;
-    const btn = document.getElementById('start-btn');
-    btn.disabled = true;
-    btn.textContent = '⏳ Uploading…';
+    const btn = document.getElementById('upload-btn');
+    btn.disabled = true; btn.textContent = '⏳ Reading file…';
     hideError();
 
     const fd = new FormData();
@@ -356,42 +283,107 @@
     try {
       const resp = await fetch('/upload', { method: 'POST', body: fd });
       const data = await resp.json();
-      if (!resp.ok || data.error) { showError(data.error || 'Upload failed'); btn.disabled = false; btn.textContent = '⚡ Generate Campaign'; return; }
-      startPolling(data.job_id);
+      if (!resp.ok || data.error) {
+        showError(data.error || 'Upload failed');
+        btn.disabled = false; btn.textContent = '📤 Upload & Preview Columns'; return;
+      }
+      fileId = data.file_id;
+      allHeaders = data.headers;
+      sampleRow  = data.sample;
+      showMappingPanel(data);
+      btn.textContent = '✅ File read';
     } catch (e) {
       showError('Network error: ' + e.message);
-      btn.disabled = false;
-      btn.textContent = '⚡ Generate Campaign';
+      btn.disabled = false; btn.textContent = '📤 Upload & Preview Columns';
+    }
+  });
+
+  function showMappingPanel(data) {
+    document.getElementById('mapping-panel').style.display = 'block';
+    document.getElementById('mapping-count').textContent =
+      `Found ${data.total} rows · ${data.headers.length} columns`;
+
+    const fields = ['company','contact','website','phone'];
+    fields.forEach(field => {
+      const sel = document.getElementById('map-' + field);
+      sel.innerHTML = '<option value="">— skip —</option>';
+      data.headers.forEach((h, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = `Col ${i+1}: ${h || '(blank)'}`;
+        if (data.guesses[field] === i) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      updateSample(field);
+      sel.addEventListener('change', () => updateSample(field));
+    });
+  }
+
+  function updateSample(field) {
+    const sel = document.getElementById('map-' + field);
+    const idx = sel.value;
+    const el  = document.getElementById('sample-' + field);
+    el.textContent = idx !== '' ? (sampleRow[parseInt(idx)] || '(empty)') : '';
+  }
+
+  // ── Step 2: Start processing ──
+  document.getElementById('start-btn').addEventListener('click', async () => {
+    const colMap = {
+      company: document.getElementById('map-company').value,
+      contact: document.getElementById('map-contact').value,
+      website: document.getElementById('map-website').value,
+      phone:   document.getElementById('map-phone').value,
+    };
+    if (colMap.company === '') { showError('Please map the Company Name column.'); return; }
+    if (colMap.website === '') { showError('Please map the Website URL column.'); return; }
+
+    hideError();
+    document.getElementById('start-btn').disabled = true;
+    document.getElementById('start-btn').textContent = '⏳ Starting…';
+
+    try {
+      const resp = await fetch('/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_id: fileId, col_map: colMap }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || data.error) {
+        showError(data.error || 'Failed to start');
+        document.getElementById('start-btn').disabled = false;
+        document.getElementById('start-btn').textContent = '⚡ Generate Campaign'; return;
+      }
+      document.getElementById('mapping-panel').style.display = 'none';
+      startPolling(data.job_id);
+    } catch(e) {
+      showError('Network error: ' + e.message);
+      document.getElementById('start-btn').disabled = false;
+      document.getElementById('start-btn').textContent = '⚡ Generate Campaign';
     }
   });
 
   // ── Polling ──
   function startPolling(jobId) {
     document.getElementById('progress-panel').style.display = 'block';
-    document.getElementById('start-btn').textContent = '⏳ Processing…';
     lastLogCount = 0;
 
     pollInterval = setInterval(async () => {
       try {
         const resp = await fetch('/status/' + jobId);
         const data = await resp.json();
-
-        // Update log
         const logBox = document.getElementById('log-box');
-        const newLines = data.log.slice(lastLogCount);
-        newLines.forEach(line => {
+        data.log.slice(lastLogCount).forEach(line => {
           const div = document.createElement('div');
-          if (line.includes('✅')) div.className = 'line-ok';
-          else if (line.includes('⚠️')) div.className = 'line-warn';
+          if      (line.includes('✅'))                          div.className = 'line-ok';
+          else if (line.includes('⚠️'))                         div.className = 'line-warn';
           else if (line.includes('❌') || line.includes('ERROR')) div.className = 'line-err';
-          else if (line.includes('🤖') || line.includes('🌐')) div.className = 'line-info';
+          else if (line.includes('🤖') || line.includes('🌐'))   div.className = 'line-info';
           div.textContent = line;
           logBox.appendChild(div);
         });
         lastLogCount = data.log.length;
         logBox.scrollTop = logBox.scrollHeight;
 
-        // Update bar
         if (data.total > 0) {
           const pct = Math.round((data.progress / data.total) * 100);
           document.getElementById('progress-bar').style.width = pct + '%';
@@ -405,36 +397,30 @@
           document.getElementById('download-btn').href = '/download/' + data.output_file;
           document.getElementById('download-section').style.display = 'block';
           document.getElementById('reset-btn').style.display = 'block';
-          document.getElementById('start-btn').textContent = '✅ Done!';
         } else if (data.status === 'error') {
           clearInterval(pollInterval);
-          showError('Processing failed. Check the log above.');
-          document.getElementById('start-btn').disabled = false;
-          document.getElementById('start-btn').textContent = '⚡ Generate Campaign';
+          showError('Processing failed — check the log above.');
           document.getElementById('reset-btn').style.display = 'block';
         }
-      } catch (e) {
-        // network hiccup — keep polling
-      }
+      } catch(e) { /* network hiccup */ }
     }, 1200);
   }
 
   function showError(msg) {
     const el = document.getElementById('error-banner');
-    el.textContent = '❌ ' + msg;
-    el.style.display = 'block';
+    el.textContent = '❌ ' + msg; el.style.display = 'block';
   }
-  function hideError() {
-    document.getElementById('error-banner').style.display = 'none';
-  }
+  function hideError() { document.getElementById('error-banner').style.display = 'none'; }
 
   function resetUI() {
     clearInterval(pollInterval);
-    selectedFile = null;
-    lastLogCount = 0;
+    selectedFile = null; fileId = null; allHeaders = []; sampleRow = []; lastLogCount = 0;
     document.getElementById('file-name').textContent = '';
     document.getElementById('file-input').value = '';
-    document.getElementById('start-btn').disabled = true;
+    document.getElementById('upload-btn').disabled = true;
+    document.getElementById('upload-btn').textContent = '📤 Upload & Preview Columns';
+    document.getElementById('mapping-panel').style.display = 'none';
+    document.getElementById('start-btn').disabled = false;
     document.getElementById('start-btn').textContent = '⚡ Generate Campaign';
     document.getElementById('progress-panel').style.display = 'none';
     document.getElementById('download-section').style.display = 'none';
