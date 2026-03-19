@@ -1,0 +1,30 @@
+# Environment / secrets
+.env
+config.local.py
+
+# Uploaded & generated files
+uploads/
+outputs/
+server.log
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Claude
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
