@@ -9,13 +9,9 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #0f1117;
-      color: #e8eaf0;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 40px 20px 60px;
+      background: #0f1117; color: #e8eaf0;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; padding: 40px 20px 60px;
     }
 
     .header { text-align: center; margin-bottom: 40px; }
@@ -35,13 +31,14 @@
 
     .steps { display: flex; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
     .step {
-      flex: 1; min-width: 140px; background: #12151e;
+      flex: 1; min-width: 120px; background: #12151e;
       border: 1px solid #2a2f42; border-radius: 10px;
       padding: 14px 16px; font-size: 0.82rem; color: #8b9cb8;
     }
     .step .step-num { font-size: 1.2rem; margin-bottom: 4px; }
     .step b { color: #c8d0e0; }
 
+    /* Upload zone */
     #drop-zone {
       border: 2px dashed #2e3650; border-radius: 12px; padding: 40px 20px;
       text-align: center; cursor: pointer;
@@ -54,63 +51,46 @@
     #file-input { display: none; }
     #file-name { margin-top: 12px; font-size: 0.85rem; color: #4ade80; font-weight: 600; min-height: 20px; }
 
-    /* ── Column Mapping ── */
-    #mapping-panel {
-      display: none;
-      margin-top: 22px;
-      background: #12151e;
-      border: 1px solid #2a2f42;
-      border-radius: 12px;
-      padding: 20px;
-    }
-    #mapping-panel h3 { font-size: 0.95rem; color: #c8d0e0; margin-bottom: 6px; }
-    #mapping-panel p  { font-size: 0.8rem; color: #8b9cb8; margin-bottom: 16px; }
-    .map-row {
-      display: flex; align-items: center; gap: 12px;
-      margin-bottom: 12px;
-    }
-    .map-label {
-      width: 130px; font-size: 0.83rem; font-weight: 600; color: #22d3ee; flex-shrink: 0;
-    }
-    .map-row select {
-      flex: 1; background: #1a1d27; border: 1px solid #3a4160;
-      border-radius: 7px; color: #e8eaf0; padding: 7px 10px; font-size: 0.82rem;
-      appearance: none; cursor: pointer;
-    }
-    .map-row select:focus { outline: none; border-color: #4ade80; }
-    .sample-val {
-      font-size: 0.75rem; color: #8b9cb8; font-family: monospace;
-      max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    #mapping-count { font-size: 0.8rem; color: #8b9cb8; margin-bottom: 14px; }
-
-    .btn-primary {
+    /* Buttons */
+    .btn {
       width: 100%; margin-top: 18px; padding: 14px;
       background: linear-gradient(135deg, #16a34a, #0891b2);
       color: #fff; border: none; border-radius: 10px;
       font-size: 1rem; font-weight: 700; cursor: pointer;
       transition: opacity .2s, transform .1s;
     }
-    .btn-primary:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
-    .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+    .btn:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
 
-    #upload-btn {
-      width: 100%; margin-top: 22px; padding: 14px;
-      background: linear-gradient(135deg, #16a34a, #0891b2);
-      color: #fff; border: none; border-radius: 10px;
-      font-size: 1rem; font-weight: 700; cursor: pointer;
-      transition: opacity .2s, transform .1s;
+    /* Column mapping */
+    #mapping-panel {
+      display: none; margin-top: 22px; background: #12151e;
+      border: 1px solid #2a2f42; border-radius: 12px; padding: 20px;
     }
-    #upload-btn:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
-    #upload-btn:disabled { opacity: .45; cursor: not-allowed; }
+    #mapping-panel h3 { font-size: 0.95rem; color: #c8d0e0; margin-bottom: 4px; }
+    #mapping-panel p  { font-size: 0.8rem; color: #8b9cb8; margin-bottom: 14px; }
+    #mapping-count { font-size: 0.8rem; color: #4ade80; font-weight: 600; margin-bottom: 14px; }
+    .map-row { display: flex; align-items: center; gap: 12px; margin-bottom: 11px; }
+    .map-label { width: 130px; font-size: 0.83rem; font-weight: 600; color: #22d3ee; flex-shrink: 0; }
+    .map-row select {
+      flex: 1; background: #1a1d27; border: 1px solid #3a4160;
+      border-radius: 7px; color: #e8eaf0; padding: 7px 10px; font-size: 0.82rem;
+      cursor: pointer; appearance: none;
+    }
+    .map-row select:focus { outline: none; border-color: #4ade80; }
+    .sample-val {
+      font-size: 0.72rem; color: #8b9cb8; font-family: monospace;
+      max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
 
+    /* Progress */
     #progress-panel { display: none; margin-top: 28px; }
     .progress-header {
       display: flex; justify-content: space-between; align-items: center;
       margin-bottom: 10px; font-size: 0.88rem;
     }
     .progress-header span { color: #8b9cb8; }
-    .progress-header #pct { color: #4ade80; font-weight: 700; }
+    #pct { color: #4ade80; font-weight: 700; }
     .progress-bar-bg {
       background: #12151e; border-radius: 8px; height: 10px;
       overflow: hidden; border: 1px solid #2a2f42;
@@ -118,7 +98,7 @@
     #progress-bar {
       height: 100%; width: 0%;
       background: linear-gradient(90deg, #16a34a, #22d3ee);
-      border-radius: 8px; transition: width .4s ease;
+      border-radius: 8px; transition: width .3s ease;
     }
 
     #log-box {
@@ -127,27 +107,31 @@
       font-family: "Cascadia Code", "Fira Code", "Courier New", monospace;
       font-size: 0.78rem; line-height: 1.6; color: #a8b8d0;
     }
-    #log-box .line-ok   { color: #4ade80; }
-    #log-box .line-warn { color: #facc15; }
-    #log-box .line-err  { color: #f87171; }
-    #log-box .line-info { color: #22d3ee; }
+    #log-box .ok   { color: #4ade80; }
+    #log-box .warn { color: #facc15; }
+    #log-box .err  { color: #f87171; }
+    #log-box .info { color: #22d3ee; }
 
+    /* Download */
     #download-section { display: none; margin-top: 24px; text-align: center; }
     #download-btn {
       display: inline-block; padding: 13px 32px;
       background: linear-gradient(135deg, #16a34a, #0891b2);
       color: #fff; border-radius: 10px; font-weight: 700;
       font-size: 1rem; text-decoration: none; transition: opacity .2s;
+      cursor: pointer; border: none;
     }
     #download-btn:hover { opacity: .85; }
     #download-note { font-size: 0.8rem; color: #8b9cb8; margin-top: 8px; }
 
+    /* Error */
     #error-banner {
       display: none; margin-top: 18px; background: #2d1515;
       border: 1px solid #7f1d1d; border-radius: 8px;
       padding: 12px 16px; color: #fca5a5; font-size: 0.85rem;
     }
 
+    /* Reset */
     #reset-btn {
       display: none; margin: 18px auto 0; padding: 9px 22px;
       background: transparent; border: 1px solid #3a4160;
@@ -165,271 +149,323 @@
 </head>
 <body>
 
-  <div class="header">
-    <div class="logo">🌿</div>
-    <h1>Landscaper Email Campaign Generator</h1>
-    <p>Upload your prospects list → get a fully personalised 3-email sequence per landscaper</p>
+<div class="header">
+  <div class="logo">🌿</div>
+  <h1>Landscaper Email Campaign Generator</h1>
+  <p>Upload your prospects list → get a fully personalised 3-email sequence per landscaper</p>
+</div>
+
+<div class="card">
+  <div class="steps">
+    <div class="step"><div class="step-num">📂</div><b>Upload</b><br>Your leads Excel file</div>
+    <div class="step"><div class="step-num">🗂️</div><b>Map columns</b><br>Pick which col is which</div>
+    <div class="step"><div class="step-num">🤖</div><b>Generate</b><br>Gemini writes 3 emails each</div>
+    <div class="step"><div class="step-num">📥</div><b>Download</b><br>Ready-to-send Excel</div>
   </div>
 
-  <div class="card">
-    <div class="steps">
-      <div class="step"><div class="step-num">📂</div><b>Upload</b><br>Your leads Excel file</div>
-      <div class="step"><div class="step-num">🗂️</div><b>Map columns</b><br>Tell us which col is which</div>
-      <div class="step"><div class="step-num">🤖</div><b>Generate</b><br>Gemini writes 3 unique emails</div>
-      <div class="step"><div class="step-num">📥</div><b>Download</b><br>Ready-to-send Excel campaign</div>
+  <!-- Step 1 -->
+  <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <div class="icon">📊</div>
+    <p>Drop your Excel file here or <span>click to browse</span></p>
+    <p style="margin-top:4px;font-size:0.78rem;">Accepts .xlsx / .xls — any column layout</p>
+    <div id="file-name"></div>
+  </div>
+  <input type="file" id="file-input" accept=".xlsx,.xls" />
+
+  <button class="btn" id="upload-btn" disabled>📤 Upload & Preview Columns</button>
+
+  <!-- Step 2: Column mapping -->
+  <div id="mapping-panel">
+    <h3>Map your columns</h3>
+    <p>Confirm which column is which — sample value shown on the right.</p>
+    <div id="mapping-count"></div>
+
+    <div class="map-row">
+      <div class="map-label">🏢 Company Name</div>
+      <select id="map-company"></select>
+      <div class="sample-val" id="sample-company"></div>
+    </div>
+    <div class="map-row">
+      <div class="map-label">👤 Contact Name</div>
+      <select id="map-contact"></select>
+      <div class="sample-val" id="sample-contact"></div>
+    </div>
+    <div class="map-row">
+      <div class="map-label">🌐 Website URL</div>
+      <select id="map-website"></select>
+      <div class="sample-val" id="sample-website"></div>
+    </div>
+    <div class="map-row">
+      <div class="map-label">📞 Phone Number</div>
+      <select id="map-phone"></select>
+      <div class="sample-val" id="sample-phone"></div>
     </div>
 
-    <!-- Step 1: Upload -->
-    <div id="drop-zone" onclick="document.getElementById('file-input').click()">
-      <div class="icon">📊</div>
-      <p>Drop your Excel file here or <span>click to browse</span></p>
-      <p style="margin-top:4px;font-size:0.78rem;">Accepts .xlsx / .xls — any column layout</p>
-      <div id="file-name"></div>
-    </div>
-    <input type="file" id="file-input" accept=".xlsx,.xls" />
-
-    <button id="upload-btn" disabled>📤 Upload & Preview Columns</button>
-
-    <!-- Step 2: Column Mapping -->
-    <div id="mapping-panel">
-      <h3>Map your columns</h3>
-      <p>We detected these columns — confirm which is which before generating.</p>
-      <div id="mapping-count"></div>
-
-      <div class="map-row">
-        <div class="map-label">🏢 Company Name</div>
-        <select id="map-company"></select>
-        <div class="sample-val" id="sample-company"></div>
-      </div>
-      <div class="map-row">
-        <div class="map-label">👤 Contact Name</div>
-        <select id="map-contact"></select>
-        <div class="sample-val" id="sample-contact"></div>
-      </div>
-      <div class="map-row">
-        <div class="map-label">🌐 Website URL</div>
-        <select id="map-website"></select>
-        <div class="sample-val" id="sample-website"></div>
-      </div>
-      <div class="map-row">
-        <div class="map-label">📞 Phone Number</div>
-        <select id="map-phone"></select>
-        <div class="sample-val" id="sample-phone"></div>
-      </div>
-
-      <button class="btn-primary" id="start-btn">⚡ Generate Campaign</button>
-    </div>
-
-    <div id="error-banner"></div>
-
-    <!-- Progress -->
-    <div id="progress-panel">
-      <div class="progress-header">
-        <span>Processing landscapers…</span>
-        <span id="pct">0%</span>
-      </div>
-      <div class="progress-bar-bg"><div id="progress-bar"></div></div>
-      <div id="log-box"></div>
-    </div>
-
-    <!-- Download -->
-    <div id="download-section">
-      <a id="download-btn" href="#">📥 Download Campaign Excel</a>
-      <div id="download-note">Your personalised 3-email sequences are ready</div>
-    </div>
-
-    <button id="reset-btn" onclick="resetUI()">↩ Start Over</button>
+    <button class="btn" id="start-btn">⚡ Generate Campaign</button>
   </div>
 
-  <div class="footer">Powered by Gemini 2.5 Flash · Built for landscaping lead gen</div>
+  <div id="error-banner"></div>
+
+  <!-- Progress -->
+  <div id="progress-panel">
+    <div class="progress-header">
+      <span id="progress-label">Processing…</span>
+      <span id="pct">0%</span>
+    </div>
+    <div class="progress-bar-bg"><div id="progress-bar"></div></div>
+    <div id="log-box"></div>
+  </div>
+
+  <!-- Download -->
+  <div id="download-section">
+    <button id="download-btn" onclick="triggerDownload()">📥 Download Campaign Excel</button>
+    <div id="download-note">Your personalised 3-email sequences are ready</div>
+  </div>
+
+  <button id="reset-btn" onclick="resetUI()">↩ Start Over</button>
+</div>
+
+<div class="footer">Powered by Gemini 2.5 Flash · Built for landscaping lead gen</div>
 
 <script>
-  let selectedFile = null;
-  let pollInterval = null;
-  let lastLogCount = 0;
-  let fileId = null;
-  let allHeaders = [];
-  let sampleRow = [];
+// ── State ──────────────────────────────────────────────────────────────────────
+let allRows    = [];   // raw rows from server (arrays)
+let allHeaders = [];
+let sampleRow  = [];
+let results    = [];   // completed records
+let cancelled  = false;
 
-  // ── Drag & drop ──
-  const dropZone = document.getElementById('drop-zone');
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault(); dropZone.classList.remove('dragover');
-    const f = e.dataTransfer.files[0]; if (f) setFile(f);
-  });
-  document.getElementById('file-input').addEventListener('change', e => {
-    if (e.target.files[0]) setFile(e.target.files[0]);
-  });
+// ── Drag & drop ────────────────────────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  const f = e.dataTransfer.files[0]; if (f) setFile(f);
+});
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) setFile(e.target.files[0]);
+});
 
-  function setFile(f) {
-    selectedFile = f;
-    document.getElementById('file-name').textContent = '📎 ' + f.name;
-    document.getElementById('upload-btn').disabled = false;
-    hideError();
-  }
+function setFile(f) {
+  document.getElementById('file-name').textContent = '📎 ' + f.name;
+  document.getElementById('upload-btn').disabled = false;
+  document.getElementById('upload-btn')._file = f;
+  hideError();
+}
 
-  // ── Step 1: Upload → get headers ──
-  document.getElementById('upload-btn').addEventListener('click', async () => {
-    if (!selectedFile) return;
-    const btn = document.getElementById('upload-btn');
-    btn.disabled = true; btn.textContent = '⏳ Reading file…';
-    hideError();
+// ── Step 1: Upload ─────────────────────────────────────────────────────────────
+document.getElementById('upload-btn').addEventListener('click', async () => {
+  const btn  = document.getElementById('upload-btn');
+  const file = btn._file;
+  if (!file) return;
 
-    const fd = new FormData();
-    fd.append('file', selectedFile);
+  btn.disabled = true; btn.textContent = '⏳ Reading file…';
+  hideError();
 
-    try {
-      const resp = await fetch('/upload', { method: 'POST', body: fd });
-      const data = await resp.json();
-      if (!resp.ok || data.error) {
-        showError(data.error || 'Upload failed');
-        btn.disabled = false; btn.textContent = '📤 Upload & Preview Columns'; return;
-      }
-      fileId = data.file_id;
-      allHeaders = data.headers;
-      sampleRow  = data.sample;
-      showMappingPanel(data);
-      btn.textContent = '✅ File read';
-    } catch (e) {
-      showError('Network error: ' + e.message);
-      btn.disabled = false; btn.textContent = '📤 Upload & Preview Columns';
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const resp = await fetch('/upload', { method: 'POST', body: fd });
+    const data = await resp.json();
+    if (!resp.ok || data.error) {
+      showError(data.error || 'Upload failed');
+      btn.disabled = false; btn.textContent = '📤 Upload & Preview Columns'; return;
     }
-  });
-
-  function showMappingPanel(data) {
-    document.getElementById('mapping-panel').style.display = 'block';
-    document.getElementById('mapping-count').textContent =
-      `Found ${data.total} rows · ${data.headers.length} columns`;
-
-    const fields = ['company','contact','website','phone'];
-    fields.forEach(field => {
-      const sel = document.getElementById('map-' + field);
-      sel.innerHTML = '<option value="">— skip —</option>';
-      data.headers.forEach((h, i) => {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = `Col ${i+1}: ${h || '(blank)'}`;
-        if (data.guesses[field] === i) opt.selected = true;
-        sel.appendChild(opt);
-      });
-      updateSample(field);
-      sel.addEventListener('change', () => updateSample(field));
-    });
+    allRows    = data.rows;
+    allHeaders = data.headers;
+    sampleRow  = data.sample;
+    showMappingPanel(data);
+    btn.textContent = '✅ File loaded';
+  } catch (e) {
+    showError('Network error: ' + e.message);
+    btn.disabled = false; btn.textContent = '📤 Upload & Preview Columns';
   }
+});
 
-  function updateSample(field) {
+function showMappingPanel(data) {
+  document.getElementById('mapping-panel').style.display = 'block';
+  document.getElementById('mapping-count').textContent =
+    `✅ ${data.total} rows detected · ${data.headers.length} columns`;
+
+  ['company','contact','website','phone'].forEach(field => {
     const sel = document.getElementById('map-' + field);
-    const idx = sel.value;
-    const el  = document.getElementById('sample-' + field);
-    el.textContent = idx !== '' ? (sampleRow[parseInt(idx)] || '(empty)') : '';
-  }
+    sel.innerHTML = '<option value="">— skip —</option>';
+    data.headers.forEach((h, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `Col ${i+1}: ${h || '(blank)'}`;
+      if (data.guesses[field] === i) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    updateSample(field);
+    sel.addEventListener('change', () => updateSample(field));
+  });
+}
 
-  // ── Step 2: Start processing ──
-  document.getElementById('start-btn').addEventListener('click', async () => {
-    const colMap = {
-      company: document.getElementById('map-company').value,
-      contact: document.getElementById('map-contact').value,
-      website: document.getElementById('map-website').value,
-      phone:   document.getElementById('map-phone').value,
-    };
-    if (colMap.company === '') { showError('Please map the Company Name column.'); return; }
-    if (colMap.website === '') { showError('Please map the Website URL column.'); return; }
+function updateSample(field) {
+  const sel = document.getElementById('map-' + field);
+  const idx = sel.value;
+  document.getElementById('sample-' + field).textContent =
+    idx !== '' ? (sampleRow[parseInt(idx)] || '(empty)') : '';
+}
 
-    hideError();
-    document.getElementById('start-btn').disabled = true;
-    document.getElementById('start-btn').textContent = '⏳ Starting…';
+// ── Step 2: Generate (frontend-driven loop) ───────────────────────────────────
+document.getElementById('start-btn').addEventListener('click', async () => {
+  const companyIdx = document.getElementById('map-company').value;
+  const contactIdx = document.getElementById('map-contact').value;
+  const websiteIdx = document.getElementById('map-website').value;
+  const phoneIdx   = document.getElementById('map-phone').value;
+
+  if (companyIdx === '') { showError('Please map the Company Name column.'); return; }
+  if (websiteIdx === '') { showError('Please map the Website URL column.'); return; }
+
+  hideError();
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('mapping-panel').querySelector('h3').textContent = '✅ Columns mapped';
+
+  // Build records from raw rows using chosen indices
+  const records = allRows.map(row => ({
+    company: companyIdx !== '' ? (row[parseInt(companyIdx)] || '') : '',
+    contact: contactIdx !== '' ? (row[parseInt(contactIdx)] || '') : '',
+    website: websiteIdx !== '' ? (row[parseInt(websiteIdx)] || '') : '',
+    phone:   phoneIdx   !== '' ? (row[parseInt(phoneIdx)]   || '') : '',
+  }));
+
+  const total = records.length;
+  results   = [];
+  cancelled = false;
+
+  document.getElementById('progress-panel').style.display = 'block';
+  document.getElementById('mapping-panel').style.display  = 'none';
+  document.getElementById('reset-btn').style.display      = 'block';
+
+  log(`✅ Starting — ${total} landscapers to process`, 'ok');
+
+  for (let i = 0; i < total; i++) {
+    if (cancelled) { log('🛑 Cancelled by user.', 'warn'); break; }
+
+    const rec   = records[i];
+    const label = rec.company || `Row ${i+1}`;
+    const pct   = Math.round((i / total) * 100);
+
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('pct').textContent = pct + '%';
+    document.getElementById('progress-label').textContent =
+      `[${i+1}/${total}] ${label}`;
+
+    log(`[${i+1}/${total}] ${label}`, '');
+    log(`  🌐 ${rec.website || '(no URL)'}`, 'info');
 
     try {
-      const resp = await fetch('/start', {
-        method: 'POST',
+      const resp = await fetch('/process-record', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_id: fileId, col_map: colMap }),
+        body:    JSON.stringify(rec),
       });
-      const data = await resp.json();
-      if (!resp.ok || data.error) {
-        showError(data.error || 'Failed to start');
-        document.getElementById('start-btn').disabled = false;
-        document.getElementById('start-btn').textContent = '⚡ Generate Campaign'; return;
+
+      if (!resp.ok) {
+        const err = await resp.text();
+        log(`  ❌ Server error: ${err.slice(0,120)}`, 'err');
+        results.push({ ...rec, research_notes: 'Server error', email_1: '', email_2: '', email_3: '' });
+        continue;
       }
-      document.getElementById('mapping-panel').style.display = 'none';
-      startPolling(data.job_id);
-    } catch(e) {
-      showError('Network error: ' + e.message);
-      document.getElementById('start-btn').disabled = false;
-      document.getElementById('start-btn').textContent = '⚡ Generate Campaign';
+
+      const data = await resp.json();
+      if (data.site_ok) {
+        log(`  ✅ Site scraped`, 'ok');
+      } else {
+        log(`  ⚠️  Site failed: ${data.site_error || 'unknown'}`, 'warn');
+      }
+      log(`  🤖 Emails generated`, 'info');
+      results.push(data);
+
+    } catch (e) {
+      log(`  ❌ Network error: ${e.message}`, 'err');
+      results.push({
+        'Company Name': rec.company, 'Contact Name': rec.contact,
+        'Website URL': rec.website, 'Phone Number': rec.phone,
+        research_notes: 'Network error', email_1: '', email_2: '', email_3: '',
+      });
     }
-  });
-
-  // ── Polling ──
-  function startPolling(jobId) {
-    document.getElementById('progress-panel').style.display = 'block';
-    lastLogCount = 0;
-
-    pollInterval = setInterval(async () => {
-      try {
-        const resp = await fetch('/status/' + jobId);
-        const data = await resp.json();
-        const logBox = document.getElementById('log-box');
-        data.log.slice(lastLogCount).forEach(line => {
-          const div = document.createElement('div');
-          if      (line.includes('✅'))                          div.className = 'line-ok';
-          else if (line.includes('⚠️'))                         div.className = 'line-warn';
-          else if (line.includes('❌') || line.includes('ERROR')) div.className = 'line-err';
-          else if (line.includes('🤖') || line.includes('🌐'))   div.className = 'line-info';
-          div.textContent = line;
-          logBox.appendChild(div);
-        });
-        lastLogCount = data.log.length;
-        logBox.scrollTop = logBox.scrollHeight;
-
-        if (data.total > 0) {
-          const pct = Math.round((data.progress / data.total) * 100);
-          document.getElementById('progress-bar').style.width = pct + '%';
-          document.getElementById('pct').textContent = pct + '%';
-        }
-
-        if (data.status === 'done') {
-          clearInterval(pollInterval);
-          document.getElementById('progress-bar').style.width = '100%';
-          document.getElementById('pct').textContent = '100%';
-          document.getElementById('download-btn').href = '/download/' + data.output_file;
-          document.getElementById('download-section').style.display = 'block';
-          document.getElementById('reset-btn').style.display = 'block';
-        } else if (data.status === 'error') {
-          clearInterval(pollInterval);
-          showError('Processing failed — check the log above.');
-          document.getElementById('reset-btn').style.display = 'block';
-        }
-      } catch(e) { /* network hiccup */ }
-    }, 1200);
   }
 
-  function showError(msg) {
-    const el = document.getElementById('error-banner');
-    el.textContent = '❌ ' + msg; el.style.display = 'block';
-  }
-  function hideError() { document.getElementById('error-banner').style.display = 'none'; }
+  // Done
+  document.getElementById('progress-bar').style.width = '100%';
+  document.getElementById('pct').textContent = '100%';
+  document.getElementById('progress-label').textContent = `✅ Done — ${results.length} records`;
+  log(`\n✅ All done! ${results.length} records processed. Click Download.`, 'ok');
+  document.getElementById('download-section').style.display = 'block';
+});
 
-  function resetUI() {
-    clearInterval(pollInterval);
-    selectedFile = null; fileId = null; allHeaders = []; sampleRow = []; lastLogCount = 0;
-    document.getElementById('file-name').textContent = '';
-    document.getElementById('file-input').value = '';
-    document.getElementById('upload-btn').disabled = true;
-    document.getElementById('upload-btn').textContent = '📤 Upload & Preview Columns';
-    document.getElementById('mapping-panel').style.display = 'none';
-    document.getElementById('start-btn').disabled = false;
-    document.getElementById('start-btn').textContent = '⚡ Generate Campaign';
-    document.getElementById('progress-panel').style.display = 'none';
-    document.getElementById('download-section').style.display = 'none';
-    document.getElementById('reset-btn').style.display = 'none';
-    document.getElementById('log-box').innerHTML = '';
-    document.getElementById('progress-bar').style.width = '0%';
-    document.getElementById('pct').textContent = '0%';
-    hideError();
+// ── Export ─────────────────────────────────────────────────────────────────────
+async function triggerDownload() {
+  const btn = document.getElementById('download-btn');
+  btn.disabled = true; btn.textContent = '⏳ Building Excel…';
+
+  try {
+    const resp = await fetch('/export', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(results),
+    });
+    if (!resp.ok) {
+      const err = await resp.json();
+      showError(err.error || 'Export failed');
+      btn.disabled = false; btn.textContent = '📥 Download Campaign Excel'; return;
+    }
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `campaign_${new Date().toISOString().slice(0,10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    btn.disabled = false; btn.textContent = '📥 Download Campaign Excel';
+  } catch (e) {
+    showError('Download error: ' + e.message);
+    btn.disabled = false; btn.textContent = '📥 Download Campaign Excel';
   }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function log(msg, cls) {
+  const box = document.getElementById('log-box');
+  const div = document.createElement('div');
+  if (cls) div.className = cls;
+  div.textContent = msg;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = '❌ ' + msg; el.style.display = 'block';
+}
+function hideError() {
+  document.getElementById('error-banner').style.display = 'none';
+}
+
+function resetUI() {
+  cancelled = true;
+  allRows = []; allHeaders = []; sampleRow = []; results = [];
+  document.getElementById('file-name').textContent = '';
+  document.getElementById('file-input').value = '';
+  const ub = document.getElementById('upload-btn');
+  ub.disabled = true; ub._file = null; ub.textContent = '📤 Upload & Preview Columns';
+  document.getElementById('mapping-panel').style.display   = 'none';
+  document.getElementById('progress-panel').style.display  = 'none';
+  document.getElementById('download-section').style.display = 'none';
+  document.getElementById('reset-btn').style.display        = 'none';
+  document.getElementById('log-box').innerHTML = '';
+  document.getElementById('progress-bar').style.width = '0%';
+  document.getElementById('pct').textContent = '0%';
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('start-btn').textContent = '⚡ Generate Campaign';
+  document.getElementById('mapping-panel').querySelector('h3').textContent = 'Map your columns';
+  hideError();
+}
 </script>
 </body>
 </html>

@@ -1,50 +1,37 @@
 """
-Landscaper Email Campaign Generator — Flask Web App
-Uses Gemini 2.5 Flash for personalized cold email generation.
+Landscaper Email Campaign Generator — Stateless Flask App
+Works on Vercel (serverless) and locally.
+Frontend drives the loop: one /process-record call per landscaper.
 """
 
+import io
 import os
 import re
 import json
-import time
-import uuid
-import threading
 from datetime import datetime
-from urllib.parse import urlparse
 
-# Load .env file if present (no external dependency needed)
-_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
-if os.path.isfile(_env_path):
-    with open(_env_path) as _f:
+import requests
+from bs4 import BeautifulSoup
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
+from flask import Flask, render_template, request, jsonify, send_file
+from google import genai
+
+# ─── CONFIG ────────────────────────────────────────────────────────────────────
+
+# Load .env if present (local dev)
+_env = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.isfile(_env):
+    with open(_env) as _f:
         for _line in _f:
             _line = _line.strip()
             if _line and not _line.startswith("#") and "=" in _line:
                 _k, _v = _line.split("=", 1)
                 os.environ.setdefault(_k.strip(), _v.strip())
 
-import requests
-from bs4 import BeautifulSoup
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment
-from flask import (Flask, render_template, request, jsonify,
-                   send_from_directory, redirect, url_for)
-from google import genai
-
-# ─── CONFIG ────────────────────────────────────────────────────────────────────
-
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL   = "gemini-2.5-flash"
-
-BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_DIR  = os.path.join(BASE_DIR, "uploads")
-OUTPUT_DIR  = os.path.join(BASE_DIR, "outputs")
-
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-REQUEST_TIMEOUT = 12
-REQUEST_DELAY   = 1.0
-API_DELAY       = 1.5
+REQUEST_TIMEOUT = 10
 
 HEADERS = {
     "User-Agent": (
@@ -58,16 +45,12 @@ HEADERS = {
 # ─── FLASK APP ─────────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB upload limit
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
-# In-memory job store  { job_id: { status, progress, total, log, output_file } }
-jobs: dict[str, dict] = {}
-jobs_lock = threading.Lock()
 
-
-# ─── WEB SCRAPER ───────────────────────────────────────────────────────────────
+# ─── HELPERS ───────────────────────────────────────────────────────────────────
 
 def clean_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
@@ -103,7 +86,8 @@ def fetch_website(url: str) -> dict:
 
     try:
         soup = BeautifulSoup(resp.text, "lxml")
-        for tag in soup(["script", "style", "nav", "footer", "head", "noscript", "iframe", "svg"]):
+        for tag in soup(["script", "style", "nav", "footer", "head",
+                         "noscript", "iframe", "svg"]):
             tag.decompose()
         title_tag = soup.find("title")
         result["title"] = clean_text(title_tag.get_text()) if title_tag else ""
@@ -113,8 +97,7 @@ def fetch_website(url: str) -> dict:
         body = soup.find("body")
         raw = body.get_text(separator=" ") if body else soup.get_text(separator=" ")
         result["body_text"] = clean_text(raw)[:3000]
-        forms = soup.find_all("form")
-        result["has_contact_form"] = bool(forms)
+        result["has_contact_form"] = bool(soup.find_all("form"))
         page_lower = resp.text.lower()
         result["has_booking"] = any(k in page_lower for k in
             ["book", "schedule", "appointment", "calendar", "reserve",
@@ -128,20 +111,16 @@ def fetch_website(url: str) -> dict:
     return result
 
 
-# ─── GEMINI EMAIL GENERATOR ────────────────────────────────────────────────────
-
 def build_prompt(company: str, contact: str, site_data: dict) -> str:
     if site_data["success"]:
-        site_summary = f"""
-WEBSITE DATA:
+        site_summary = f"""WEBSITE DATA:
 - Title: {site_data['title']}
 - Meta description: {site_data['page_meta']}
 - Has contact/lead form: {site_data['has_contact_form']}
 - Has booking / quote CTA: {site_data['has_booking']}
 - Has call-to-action: {site_data['has_cta']}
 - Page text excerpt:
-{site_data['body_text'][:2500]}
-"""
+{site_data['body_text'][:2500]}"""
     else:
         site_summary = f"WEBSITE FETCH FAILED: {site_data['error']}"
 
@@ -189,7 +168,6 @@ def generate_emails(company: str, contact: str, site_data: dict) -> dict:
         raw = re.sub(r"\s*```$", "", raw.strip())
         return json.loads(raw)
     except json.JSONDecodeError:
-        # Gemini sometimes wraps in backticks — try harder
         try:
             match = re.search(r'\{.*\}', raw, re.DOTALL)
             if match:
@@ -207,54 +185,8 @@ def generate_emails(company: str, contact: str, site_data: dict) -> dict:
         }
 
 
-# ─── EXCEL I/O ─────────────────────────────────────────────────────────────────
-
-def get_excel_headers(path: str) -> dict:
-    """Return headers and a sample row for column mapping UI."""
-    wb = openpyxl.load_workbook(path)
-    ws = wb.active
-    rows = list(ws.iter_rows(values_only=True))
-    if not rows:
-        raise ValueError("File is empty")
-    headers = [str(c).strip() if c is not None else "" for c in rows[0]]
-    sample  = [str(c).strip() if c is not None else "" for c in (rows[1] if len(rows) > 1 else [])]
-    # Auto-detect best guess for each field
-    guesses = {}
-    for i, h in enumerate(headers):
-        hl = h.lower()
-        if any(k in hl for k in ["company", "business", "name"]) and "contact" not in hl:
-            guesses.setdefault("company", i)
-        elif any(k in hl for k in ["contact", "first name", "person"]):
-            guesses.setdefault("contact", i)
-        elif any(k in hl for k in ["website", "url", "web", "site"]):
-            guesses.setdefault("website", i)
-        elif any(k in hl for k in ["phone", "tel", "mobile", "cell"]):
-            guesses.setdefault("phone", i)
-    return {"headers": headers, "sample": sample, "guesses": guesses, "total": len(rows) - 1}
-
-
-def read_excel(path: str, col_map: dict) -> list[dict]:
-    """Read excel with an explicit col_map {company, contact, website, phone} -> int index."""
-    wb = openpyxl.load_workbook(path)
-    ws = wb.active
-    rows = list(ws.iter_rows(values_only=True))
-    records = []
-    for row in rows[1:]:
-        if all(c is None or str(c).strip() == "" for c in row):
-            continue
-        def safe(idx):
-            if idx is None or idx < 0: return ""
-            return str(row[idx]).strip() if idx < len(row) and row[idx] is not None else ""
-        records.append({
-            "Company Name": safe(col_map.get("company")),
-            "Contact Name": safe(col_map.get("contact")),
-            "Website URL":  safe(col_map.get("website")),
-            "Phone Number": safe(col_map.get("phone")),
-        })
-    return records
-
-
-def write_excel(records: list[dict], output_path: str):
+def build_excel_bytes(records: list) -> bytes:
+    """Generate the campaign Excel in memory and return raw bytes."""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Email Campaign"
@@ -270,96 +202,32 @@ def write_excel(records: list[dict], output_path: str):
         cell.fill = header_fill
         cell.font = header_font
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
     fill_e = PatternFill("solid", fgColor="D6E4F0")
     fill_o = PatternFill("solid", fgColor="FFFFFF")
     for ri, rec in enumerate(records, 2):
         fill = fill_e if ri % 2 == 0 else fill_o
         for ci, val in enumerate([
-            rec.get("Company Name",""), rec.get("Contact Name",""),
-            rec.get("Website URL",""),  rec.get("Phone Number",""),
-            rec.get("Research Notes",""), rec.get("Email 1",""),
-            rec.get("Email 2",""),        rec.get("Email 3",""),
-            rec.get("Status",""),
+            rec.get("Company Name", ""),   rec.get("Contact Name", ""),
+            rec.get("Website URL", ""),    rec.get("Phone Number", ""),
+            rec.get("research_notes", ""), rec.get("email_1", ""),
+            rec.get("email_2", ""),        rec.get("email_3", ""),
+            "",
         ], 1):
             cell = ws.cell(row=ri, column=ci, value=val)
             cell.fill = fill
             cell.alignment = Alignment(vertical="top", wrap_text=True)
-    for ci, w in enumerate([28,20,35,18,50,70,70,70,15], 1):
-        ws.column_dimensions[ws.cell(row=1,column=ci).column_letter].width = w
+
+    for ci, w in enumerate([28, 20, 35, 18, 50, 70, 70, 70, 15], 1):
+        ws.column_dimensions[ws.cell(row=1, column=ci).column_letter].width = w
     ws.row_dimensions[1].height = 30
-    for ri in range(2, len(records)+2):
+    for ri in range(2, len(records) + 2):
         ws.row_dimensions[ri].height = 120
     ws.freeze_panes = "A2"
-    wb.save(output_path)
 
-
-# ─── BACKGROUND WORKER ─────────────────────────────────────────────────────────
-
-def process_job(job_id: str, input_path: str, col_map: dict):
-    def log(msg: str):
-        with jobs_lock:
-            jobs[job_id]["log"].append(msg)
-
-    def set_progress(n: int):
-        with jobs_lock:
-            jobs[job_id]["progress"] = n
-
-    try:
-        records = read_excel(input_path, col_map)
-        total = len(records)
-        with jobs_lock:
-            jobs[job_id]["total"] = total
-        log(f"✅ Loaded {total} landscapers from file")
-
-        for i, rec in enumerate(records):
-            company = rec["Company Name"] or f"Landscaper #{i+1}"
-            contact = rec["Contact Name"] or "there"
-            url     = rec["Website URL"]
-
-            log(f"[{i+1}/{total}] {company}")
-            log(f"  🌐 Fetching: {url or '(no URL)'}")
-
-            site_data = fetch_website(url)
-            if site_data["success"]:
-                log(f"  ✅ Site loaded — form:{site_data['has_contact_form']} booking:{site_data['has_booking']}")
-            else:
-                log(f"  ⚠️  Site failed: {site_data['error']}")
-
-            time.sleep(REQUEST_DELAY)
-
-            log(f"  🤖 Generating emails with Gemini...")
-            output = generate_emails(company, contact, site_data)
-
-            rec["Research Notes"] = output.get("research_notes", "")
-            rec["Email 1"]        = output.get("email_1", "")
-            rec["Email 2"]        = output.get("email_2", "")
-            rec["Email 3"]        = output.get("email_3", "")
-            rec["Status"]         = ""
-
-            log(f"  ✅ Done\n")
-            set_progress(i + 1)
-            time.sleep(API_DELAY)
-
-        # Save output
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        out_filename = f"campaign_{ts}_{job_id[:8]}.xlsx"
-        out_path = os.path.join(OUTPUT_DIR, out_filename)
-        write_excel(records, out_path)
-
-        with jobs_lock:
-            jobs[job_id]["status"]      = "done"
-            jobs[job_id]["output_file"] = out_filename
-        log(f"✅ All done! File ready to download.")
-
-    except Exception as e:
-        with jobs_lock:
-            jobs[job_id]["status"] = "error"
-        log(f"❌ Fatal error: {str(e)}")
-    finally:
-        try:
-            os.remove(input_path)
-        except Exception:
-            pass
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
 
 
 # ─── ROUTES ────────────────────────────────────────────────────────────────────
@@ -371,79 +239,102 @@ def index():
 
 @app.route("/upload", methods=["POST"])
 def upload():
-    """Step 1: save file, return headers for column mapping."""
+    """Read Excel in memory, return headers + all rows as JSON for frontend mapping."""
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
     f = request.files["file"]
     if not f.filename.endswith((".xlsx", ".xls")):
         return jsonify({"error": "Please upload an Excel file (.xlsx or .xls)"}), 400
 
-    file_id = str(uuid.uuid4())
-    filename = f"input_{file_id}.xlsx"
-    input_path = os.path.join(UPLOAD_DIR, filename)
-    f.save(input_path)
-
     try:
-        info = get_excel_headers(input_path)
+        raw = f.read()
+        wb = openpyxl.load_workbook(io.BytesIO(raw))
+        ws = wb.active
+        all_rows = list(ws.iter_rows(values_only=True))
     except Exception as e:
-        os.remove(input_path)
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": f"Could not read file: {str(e)}"}), 400
 
-    return jsonify({"file_id": file_id, **info})
+    if not all_rows:
+        return jsonify({"error": "File is empty"}), 400
 
+    headers = [str(c).strip() if c is not None else "" for c in all_rows[0]]
+    sample  = [str(c).strip() if c is not None else "" for c in (all_rows[1] if len(all_rows) > 1 else [])]
 
-@app.route("/start", methods=["POST"])
-def start():
-    """Step 2: receive confirmed column mapping, kick off processing."""
-    data = request.get_json()
-    file_id  = data.get("file_id")
-    col_map  = data.get("col_map")   # {company, contact, website, phone} -> int
+    # Auto-guess column indices
+    guesses = {}
+    for i, h in enumerate(headers):
+        hl = h.lower()
+        if any(k in hl for k in ["company", "business"]) and "contact" not in hl:
+            guesses.setdefault("company", i)
+        elif any(k in hl for k in ["contact", "first name", "person"]):
+            guesses.setdefault("contact", i)
+        elif any(k in hl for k in ["website", "url", "web", "site"]):
+            guesses.setdefault("website", i)
+        elif any(k in hl for k in ["phone", "tel", "mobile", "cell"]):
+            guesses.setdefault("phone", i)
 
-    if not file_id or not col_map:
-        return jsonify({"error": "Missing file_id or col_map"}), 400
+    # Return all data rows as plain arrays (frontend applies col mapping)
+    data_rows = []
+    for row in all_rows[1:]:
+        if all(c is None or str(c).strip() == "" for c in row):
+            continue
+        data_rows.append([str(c).strip() if c is not None else "" for c in row])
 
-    input_path = os.path.join(UPLOAD_DIR, f"input_{file_id}.xlsx")
-    if not os.path.isfile(input_path):
-        return jsonify({"error": "File not found — please re-upload"}), 404
-
-    # Convert col_map values to int
-    col_map = {k: int(v) for k, v in col_map.items() if v is not None and v != ""}
-
-    job_id = str(uuid.uuid4())
-    with jobs_lock:
-        jobs[job_id] = {
-            "status": "running",
-            "progress": 0,
-            "total": 0,
-            "log": [],
-            "output_file": None,
-        }
-
-    thread = threading.Thread(target=process_job, args=(job_id, input_path, col_map), daemon=True)
-    thread.start()
-    return jsonify({"job_id": job_id})
-
-
-@app.route("/status/<job_id>")
-def status(job_id: str):
-    with jobs_lock:
-        job = jobs.get(job_id)
-    if not job:
-        return jsonify({"error": "Job not found"}), 404
     return jsonify({
-        "status":      job["status"],
-        "progress":    job["progress"],
-        "total":       job["total"],
-        "log":         job["log"],
-        "output_file": job["output_file"],
+        "headers":  headers,
+        "sample":   sample,
+        "guesses":  guesses,
+        "rows":     data_rows,
+        "total":    len(data_rows),
     })
 
 
-@app.route("/download/<filename>")
-def download(filename: str):
-    # Basic path safety
-    safe = os.path.basename(filename)
-    return send_from_directory(OUTPUT_DIR, safe, as_attachment=True)
+@app.route("/process-record", methods=["POST"])
+def process_record():
+    """Process a single landscaper: fetch website + generate emails.
+    Called once per record from the frontend loop — stays well under Vercel timeout."""
+    data = request.get_json()
+    company = data.get("company", "") or "Unknown Company"
+    contact = data.get("contact", "") or "there"
+    website = data.get("website", "")
+    phone   = data.get("phone", "")
+
+    site_data = fetch_website(website)
+    result    = generate_emails(company, contact, site_data)
+
+    return jsonify({
+        "Company Name":   company,
+        "Contact Name":   contact,
+        "Website URL":    website,
+        "Phone Number":   phone,
+        "site_ok":        site_data["success"],
+        "site_error":     site_data.get("error", ""),
+        "research_notes": result.get("research_notes", ""),
+        "email_1":        result.get("email_1", ""),
+        "email_2":        result.get("email_2", ""),
+        "email_3":        result.get("email_3", ""),
+    })
+
+
+@app.route("/export", methods=["POST"])
+def export_excel():
+    """Receive all completed records, return Excel file as download."""
+    records = request.get_json()
+    if not records:
+        return jsonify({"error": "No records to export"}), 400
+
+    try:
+        xlsx_bytes = build_excel_bytes(records)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return send_file(
+        io.BytesIO(xlsx_bytes),
+        as_attachment=True,
+        download_name=f"campaign_{ts}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 # ─── ENTRY POINT ───────────────────────────────────────────────────────────────
@@ -451,8 +342,8 @@ def download(filename: str):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     host = "0.0.0.0" if os.environ.get("PORT") else "127.0.0.1"
-    print("\n" + "="*55)
+    print("\n" + "=" * 55)
     print("  Landscaper Email Campaign Generator")
     print(f"  Running at http://{host}:{port}")
-    print("="*55 + "\n")
+    print("=" * 55 + "\n")
     app.run(debug=False, host=host, port=port)
