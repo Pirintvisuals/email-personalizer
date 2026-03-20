@@ -70,7 +70,7 @@ def fetch_website(url: str) -> dict:
     result = {
         "success": False, "url": url, "title": "", "body_text": "",
         "has_contact_form": False, "has_booking": False,
-        "has_cta": False, "page_meta": "", "error": "", "email": "",
+        "has_cta": False, "page_meta": "", "error": "", "email": "", "contact_name": "",
     }
     if not url or url.strip() in ("", "N/A", "n/a", "-"):
         result["error"] = "No URL provided"
@@ -117,9 +117,33 @@ def fetch_website(url: str) -> dict:
              "call now", "get a quote", "request service"])
         # Extract email addresses from page
         raw_emails = re.findall(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', resp.text)
-        skip = ['noreply', 'no-reply', 'donotreply', 'example.com', 'w3.org', 'schema.org', 'sentry', 'wix.com', 'wordpress']
-        clean_emails = [e for e in raw_emails if not any(s in e.lower() for s in skip)]
+        skip_email = ['noreply', 'no-reply', 'donotreply', 'example.com', 'w3.org', 'schema.org', 'sentry', 'wix.com', 'wordpress']
+        clean_emails = [e for e in raw_emails if not any(s in e.lower() for s in skip_email)]
         result["email"] = clean_emails[0] if clean_emails else ""
+
+        # Try to extract owner / contact name from page text
+        name_found = ""
+        name_patterns = [
+            r"(?:my name is|i[' ]?m|i am|owner[:\s]+|founder[:\s]+|director[:\s]+|run by[:\s]+|contact[:\s]+)([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)",
+            r"(?:hi,?\s+i[' ]?m\s+)([A-Z][a-z]+)",
+            r"(?:^|\.\s+)([A-Z][a-z]+\s+[A-Z][a-z]+)(?:\s+is the owner|\s+founded|\s+started|\s+runs)",
+        ]
+        body_sample = result["body_text"][:4000]
+        for pat in name_patterns:
+            m = re.search(pat, body_sample, re.IGNORECASE)
+            if m:
+                candidate = m.group(1).strip()
+                # Reject if it looks like a place or generic word
+                if len(candidate.split()) <= 3 and candidate.lower() not in ["the", "our", "your", "this", "that"]:
+                    name_found = candidate
+                    break
+        # Fallback: check meta author tag
+        if not name_found:
+            author_meta = soup.find("meta", attrs={"name": re.compile(r"author", re.I)})
+            if author_meta and author_meta.get("content"):
+                name_found = clean_text(author_meta["content"])
+        result["contact_name"] = name_found
+
         result["success"] = True
     except Exception as e:
         result["error"] = f"Parse error: {str(e)[:120]}"
@@ -177,9 +201,9 @@ YOUR TASK — produce a JSON object with exactly these keys:
 
 1. "research_notes" — 2-4 sentences: what you observed on their site (services, lead capture quality, obvious gaps). If site failed to load, note it and describe what a typical landscaper site looks like.
 
-2. "email_1" — initial cold outreach. MUST follow this EXACT 5-part structure:
+2. "email_1" — ONE cold outreach email. MUST follow this EXACT structure, word for word except the opener:
 
-Subject: [short, specific subject line — reference their review count or company name]
+Subject: [short subject line — reference their review count or star rating]
 
 Hey {first_name},
 
@@ -194,25 +218,13 @@ Can I send a quick video explaining how it works?
 Milan
 +447478075473
 
-   Rules:
-   - The subject line must be on its own line at the top, before "Hey"
-   - Use "{first_name}" as the first name — never "there"
-   - The personalised opener is the ONLY line you customise — the 3 paragraphs after it are FIXED as written above
-   - Keep the opener to 1–2 sentences max, make it feel genuine not salesy
-   - Total length 80–110 words (excluding subject line)
-   - NO "I hope this email finds you well", NO fluff
-
-3. "email_2" — follow-up, send day 3 (~80 words):
-   - Subject line first
-   - Reference local competition or seasonal demand in {town if town else "their area"}
-   - One pain point about wasting time on bad leads, one soft nudge
-   - End: "Want me to send you the video?"
-
-4. "email_3" — follow-up, send day 8 (~80 words):
-   - Subject line first
-   - Brief stat or result about quality leads (e.g. time saved, conversion rate improvement)
-   - Soft close mentioning {company} specifically
-   - Final touch, no pressure
+Rules:
+- Subject line on its own line at the very top, before "Hey"
+- Use "{first_name}" — NEVER write "there"
+- The personalised opener is the ONLY part you write freely — everything after it is FIXED exactly as above
+- Opener: 1–2 sentences max, genuine not salesy
+- Total 80–110 words excluding subject line
+- NO fluff, NO "I hope this finds you well"
 
 Return ONLY valid JSON. No markdown fences. No extra text."""
 
@@ -238,12 +250,12 @@ def generate_emails(company: str, contact: str, site_data: dict, town: str = "",
             pass
         return {
             "research_notes": f"JSON parse error. Raw: {raw[:300]}",
-            "email_1": "ERROR", "email_2": "ERROR", "email_3": "ERROR",
+            "email_1": "ERROR",
         }
     except Exception as e:
         return {
             "research_notes": f"API error: {str(e)[:200]}",
-            "email_1": "ERROR", "email_2": "ERROR", "email_3": "ERROR",
+            "email_1": "ERROR",
         }
 
 
@@ -254,9 +266,8 @@ def build_excel_bytes(records: list) -> bytes:
     ws.title = "Email Campaign"
     columns = [
         "Company Name", "Contact Name", "Email", "Website URL", "Phone Number",
-        "Town", "Reviews",
-        "Research Notes", "Email 1 (Initial)", "Email 2 (Follow-up Day 3)",
-        "Email 3 (Follow-up Day 8)", "Status"
+        "Town", "Stars", "Review Count",
+        "Research Notes", "Email", "Status"
     ]
     header_fill = PatternFill("solid", fgColor="1F4E79")
     header_font = Font(color="FFFFFF", bold=True, size=11)
@@ -273,17 +284,16 @@ def build_excel_bytes(records: list) -> bytes:
         for ci, val in enumerate([
             rec.get("Company Name", ""),   rec.get("Contact Name", ""),
             rec.get("Email", ""),          rec.get("Website URL", ""),
-            rec.get("Phone Number", ""),
-            rec.get("Town", ""),           rec.get("Reviews", ""),
+            rec.get("Phone Number", ""),   rec.get("Town", ""),
+            rec.get("Stars", ""),          rec.get("Review Count", ""),
             rec.get("research_notes", ""), rec.get("email_1", ""),
-            rec.get("email_2", ""),        rec.get("email_3", ""),
             "",
         ], 1):
             cell = ws.cell(row=ri, column=ci, value=val)
             cell.fill = fill
             cell.alignment = Alignment(vertical="top", wrap_text=True)
 
-    for ci, w in enumerate([28, 20, 25, 35, 18, 20, 15, 50, 70, 70, 70, 15], 1):
+    for ci, w in enumerate([28, 20, 25, 35, 18, 20, 10, 12, 50, 80, 15], 1):
         ws.column_dimensions[ws.cell(row=1, column=ci).column_letter].width = w
     ws.row_dimensions[1].height = 30
     for ri in range(2, len(records) + 2):
@@ -447,6 +457,11 @@ def process_record():
     # If no email from spreadsheet, use one scraped from the website
     if not email:
         email = site_data.get("email", "")
+    # If no contact name from spreadsheet, use one scraped from the website
+    if not contact or contact == "there":
+        scraped_name = site_data.get("contact_name", "")
+        if scraped_name:
+            contact = scraped_name
     result    = generate_emails(company, contact, site_data, town, stars, review_count)
 
     return jsonify({
@@ -462,8 +477,6 @@ def process_record():
         "site_error":     site_data.get("error", ""),
         "research_notes": result.get("research_notes", ""),
         "email_1":        result.get("email_1", ""),
-        "email_2":        result.get("email_2", ""),
-        "email_3":        result.get("email_3", ""),
     })
 
 
