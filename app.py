@@ -577,8 +577,15 @@ def process_record():
 
     # 1. Must be a landscaping-related business (only filter if work_type column was mapped)
     if work_type:
-        landscape_keywords = ["landscap", "garden", "arborist", "tree", "ground", "lawn", "turf", "horticulture", "outdoor"]
-        if not any(k in work_type for k in landscape_keywords):
+        landscape_keywords = [
+            "landscap", "garden", "arborist", "tree", "ground", "lawn",
+            "turf", "horticulture", "outdoor", "gardener", "designer",
+            "planting", "hedge", "maintenance", "grass", "green"
+        ]
+        company_lower = company.lower()
+        company_is_landscaper = any(k in company_lower for k in landscape_keywords)
+        work_type_ok = any(k in work_type for k in landscape_keywords)
+        if not work_type_ok and not company_is_landscaper:
             return skip(f"Not a landscaper: {work_type}")
 
     # 2. Star rating must be >= 4.5 (handle European comma decimal e.g. "4,9")
