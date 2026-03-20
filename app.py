@@ -70,7 +70,7 @@ def fetch_website(url: str) -> dict:
     result = {
         "success": False, "url": url, "title": "", "body_text": "",
         "has_contact_form": False, "has_booking": False,
-        "has_cta": False, "page_meta": "", "error": "",
+        "has_cta": False, "page_meta": "", "error": "", "email": "",
     }
     if not url or url.strip() in ("", "N/A", "n/a", "-"):
         result["error"] = "No URL provided"
@@ -115,6 +115,11 @@ def fetch_website(url: str) -> dict:
         result["has_cta"] = any(k in page_lower for k in
             ["call us", "contact us", "get started", "free estimate",
              "call now", "get a quote", "request service"])
+        # Extract email addresses from page
+        raw_emails = re.findall(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', resp.text)
+        skip = ['noreply', 'no-reply', 'donotreply', 'example.com', 'w3.org', 'schema.org', 'sentry', 'wix.com', 'wordpress']
+        clean_emails = [e for e in raw_emails if not any(s in e.lower() for s in skip)]
+        result["email"] = clean_emails[0] if clean_emails else ""
         result["success"] = True
     except Exception as e:
         result["error"] = f"Parse error: {str(e)[:120]}"
@@ -248,7 +253,7 @@ def build_excel_bytes(records: list) -> bytes:
     ws = wb.active
     ws.title = "Email Campaign"
     columns = [
-        "Company Name", "Contact Name", "Website URL", "Phone Number",
+        "Company Name", "Contact Name", "Email", "Website URL", "Phone Number",
         "Town", "Reviews",
         "Research Notes", "Email 1 (Initial)", "Email 2 (Follow-up Day 3)",
         "Email 3 (Follow-up Day 8)", "Status"
@@ -267,7 +272,8 @@ def build_excel_bytes(records: list) -> bytes:
         fill = fill_e if ri % 2 == 0 else fill_o
         for ci, val in enumerate([
             rec.get("Company Name", ""),   rec.get("Contact Name", ""),
-            rec.get("Website URL", ""),    rec.get("Phone Number", ""),
+            rec.get("Email", ""),          rec.get("Website URL", ""),
+            rec.get("Phone Number", ""),
             rec.get("Town", ""),           rec.get("Reviews", ""),
             rec.get("research_notes", ""), rec.get("email_1", ""),
             rec.get("email_2", ""),        rec.get("email_3", ""),
@@ -277,7 +283,7 @@ def build_excel_bytes(records: list) -> bytes:
             cell.fill = fill
             cell.alignment = Alignment(vertical="top", wrap_text=True)
 
-    for ci, w in enumerate([28, 20, 35, 18, 20, 15, 50, 70, 70, 70, 15], 1):
+    for ci, w in enumerate([28, 20, 25, 35, 18, 20, 15, 50, 70, 70, 70, 15], 1):
         ws.column_dimensions[ws.cell(row=1, column=ci).column_letter].width = w
     ws.row_dimensions[1].height = 30
     for ri in range(2, len(records) + 2):
@@ -361,6 +367,8 @@ def upload():
             guesses.setdefault("website", i)
         elif any(k in hl for k in ["phone", "tel", "mobile", "cell"]):
             guesses.setdefault("phone", i)
+        elif any(k in hl for k in ["email", "e-mail", "mail"]):
+            guesses.setdefault("email", i)
         elif any(k in hl for k in ["town", "city", "area", "location", "region", "address"]):
             guesses.setdefault("town", i)
         elif any(k in hl for k in ["star"]) and "review" not in hl:
@@ -375,6 +383,7 @@ def upload():
         # Count how many values in this column match each pattern
         url_hits   = sum(1 for v in vals if re.search(r'https?://', v) or v.startswith("www."))
         phone_hits = sum(1 for v in vals if re.search(r'\+?\d[\d\s\-]{7,}', v))
+        email_hits = sum(1 for v in vals if re.search(r'@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', v))
         num_hits   = sum(1 for v in vals if re.match(r'^-?\d+(\.\d+)?$', v))
         # Short alphabetic words = likely town names
         town_hits  = sum(1 for v in vals
@@ -383,6 +392,8 @@ def upload():
 
         if url_hits >= len(vals) // 2:
             guesses.setdefault("website", i)
+        elif email_hits >= max(1, len(vals) // 2):
+            guesses.setdefault("email", i)
         elif phone_hits >= len(vals) // 2:
             guesses.setdefault("phone", i)
         elif i == 0 and vals:
@@ -430,13 +441,18 @@ def process_record():
     town         = strip_bullets(data.get("town", "")).split("·")[0].strip()
     stars        = strip_bullets(data.get("stars", ""))
     review_count = strip_bullets(data.get("review_count", ""))
+    email        = strip_bullets(data.get("email", ""))
 
     site_data = fetch_website(website)
+    # If no email from spreadsheet, use one scraped from the website
+    if not email:
+        email = site_data.get("email", "")
     result    = generate_emails(company, contact, site_data, town, stars, review_count)
 
     return jsonify({
         "Company Name":   company,
         "Contact Name":   contact,
+        "Email":          email,
         "Website URL":    website,
         "Phone Number":   phone,
         "Town":           town,

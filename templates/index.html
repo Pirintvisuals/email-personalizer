@@ -191,6 +191,11 @@
       <div class="sample-val" id="sample-contact"></div>
     </div>
     <div class="map-row">
+      <div class="map-label">✉️ Email</div>
+      <select id="map-email"></select>
+      <div class="sample-val" id="sample-email"></div>
+    </div>
+    <div class="map-row">
       <div class="map-label">🌐 Website URL</div>
       <select id="map-website"></select>
       <div class="sample-val" id="sample-website"></div>
@@ -304,7 +309,7 @@ function showMappingPanel(data) {
   document.getElementById('mapping-count').textContent =
     `✅ ${data.total} rows detected · ${data.headers.length} columns`;
 
-  ['company','contact','website','phone','town','stars','review_count'].forEach(field => {
+  ['company','contact','email','website','phone','town','stars','review_count'].forEach(field => {
     const sel = document.getElementById('map-' + field);
     sel.innerHTML = '<option value="">— skip —</option>';
     data.headers.forEach((h, i) => {
@@ -330,6 +335,7 @@ function updateSample(field) {
 document.getElementById('start-btn').addEventListener('click', async () => {
   const companyIdx      = document.getElementById('map-company').value;
   const contactIdx      = document.getElementById('map-contact').value;
+  const emailIdx        = document.getElementById('map-email').value;
   const websiteIdx      = document.getElementById('map-website').value;
   const phoneIdx        = document.getElementById('map-phone').value;
   const townIdx         = document.getElementById('map-town').value;
@@ -347,6 +353,7 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   const records = allRows.map(row => ({
     company:      companyIdx     !== '' ? (row[parseInt(companyIdx)]     || '') : '',
     contact:      contactIdx     !== '' ? (row[parseInt(contactIdx)]     || '') : '',
+    email:        emailIdx       !== '' ? (row[parseInt(emailIdx)]       || '') : '',
     website:      websiteIdx     !== '' ? (row[parseInt(websiteIdx)]     || '') : '',
     phone:        phoneIdx       !== '' ? (row[parseInt(phoneIdx)]       || '') : '',
     town:         townIdx        !== '' ? (row[parseInt(townIdx)]        || '') : '',
