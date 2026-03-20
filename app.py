@@ -296,13 +296,25 @@ def upload():
 
     sample = [str(c).strip() if c is not None else "" for c in (all_rows[data_start] if len(all_rows) > data_start else [])]
 
-    # Auto-guess column indices from header names
+    def clean_val(v):
+        """Strip leading bullet/separator chars (·, -, •) and whitespace."""
+        return re.sub(r'^[\s·•\-–—]+', '', str(v).strip()).strip()
+
+    # Collect cleaned values per column across all data rows (up to 10 rows)
+    num_cols = len(headers)
+    col_samples = [[] for _ in range(num_cols)]
+    for row in all_rows[data_start:data_start+10]:
+        for ci, cell in enumerate(row):
+            if ci < num_cols:
+                v = clean_val(cell) if cell is not None else ""
+                if v:
+                    col_samples[ci].append(v)
+
+    # Auto-guess column indices from header names first
     guesses = {}
     for i, h in enumerate(headers):
         hl = h.lower()
-        if any(k in hl for k in ["company", "business", "name"]) and "contact" not in hl and i == 0:
-            guesses.setdefault("company", i)
-        elif any(k in hl for k in ["company", "business"]) and "contact" not in hl:
+        if any(k in hl for k in ["company", "business"]) and "contact" not in hl:
             guesses.setdefault("company", i)
         elif any(k in hl for k in ["contact", "first name", "person"]):
             guesses.setdefault("contact", i)
@@ -315,27 +327,28 @@ def upload():
         elif any(k in hl for k in ["review", "rating", "star", "score"]):
             guesses.setdefault("reviews", i)
 
-    # Also scan sample values to fill any gaps (always runs, not just fallback)
-    for i, val in enumerate(sample):
-        if not val:
+    # Scan all collected column values to fill any gaps
+    for i, vals in enumerate(col_samples):
+        if not vals:
             continue
-        if re.search(r'https?://', val) or val.startswith("www."):
+        # Count how many values in this column match each pattern
+        url_hits   = sum(1 for v in vals if re.search(r'https?://', v) or v.startswith("www."))
+        phone_hits = sum(1 for v in vals if re.search(r'\+?\d[\d\s\-]{7,}', v))
+        num_hits   = sum(1 for v in vals if re.match(r'^-?\d+(\.\d+)?$', v))
+        # Short alphabetic words = likely town names
+        town_hits  = sum(1 for v in vals
+                         if re.match(r'^[A-Za-z][A-Za-z\s\-]{1,25}$', v.split('·')[0].strip())
+                         and not re.search(r'\d', v.split('·')[0]))
+
+        if url_hits >= len(vals) // 2:
             guesses.setdefault("website", i)
-        elif re.search(r'\+?\d[\d\s\-]{7,}', val):
+        elif phone_hits >= len(vals) // 2:
             guesses.setdefault("phone", i)
-        elif i == 0 and val:
+        elif i == 0 and vals:
             guesses.setdefault("company", i)
-        # Town: short alphabetic string, not a number, not a URL, not a phone
-        elif (
-            "town" not in guesses
-            and re.match(r'^[A-Za-z][A-Za-z\s\-]{1,30}$', val)
-            and not re.search(r'\d', val)
-            and len(val.split()) <= 4
-        ):
+        elif town_hits >= len(vals) // 2 and "town" not in guesses:
             guesses.setdefault("town", i)
-        # Reviews: looks like a plain number (possibly negative)
-        elif "reviews" not in guesses and re.match(r'^-?\d+(\.\d+)?$', val):
-            # prefer columns whose header contains star/review hint
+        elif num_hits >= len(vals) // 2 and "reviews" not in guesses:
             h = headers[i].lower() if i < len(headers) else ""
             if any(k in h for k in ["review", "star", "rating", "score"]):
                 guesses.setdefault("reviews", i)
@@ -347,9 +360,12 @@ def upload():
             continue
         data_rows.append([str(c).strip() if c is not None else "" for c in row])
 
+    # Build a sample array using the first non-empty value per column
+    best_sample = [next((v for v in col_samples[i] if v), "") for i in range(num_cols)]
+
     return jsonify({
         "headers":  headers,
-        "sample":   sample,
+        "sample":   best_sample,
         "guesses":  guesses,
         "rows":     data_rows,
         "total":    len(data_rows),
@@ -360,13 +376,16 @@ def upload():
 def process_record():
     """Process a single landscaper: fetch website + generate emails.
     Called once per record from the frontend loop — stays well under Vercel timeout."""
-    data = request.get_json()
-    company = data.get("company", "") or "Unknown Company"
-    contact = data.get("contact", "") or "there"
-    website = data.get("website", "")
-    phone   = data.get("phone", "")
-    town    = data.get("town", "")
-    reviews = data.get("reviews", "")
+    def strip_bullets(v):
+        return re.sub(r'^[\s·•\-–—]+', '', str(v or "")).strip()
+
+    data    = request.get_json()
+    company = strip_bullets(data.get("company", "")) or "Unknown Company"
+    contact = strip_bullets(data.get("contact", "")) or "there"
+    website = strip_bullets(data.get("website", ""))
+    phone   = strip_bullets(data.get("phone", ""))
+    town    = strip_bullets(data.get("town", "")).split("·")[0].strip()  # e.g. "Ilfracombe · 5+ years" → "Ilfracombe"
+    reviews = strip_bullets(data.get("reviews", ""))
 
     site_data = fetch_website(website)
     result    = generate_emails(company, contact, site_data, town, reviews)
