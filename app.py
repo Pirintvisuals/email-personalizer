@@ -126,6 +126,43 @@ def fetch_website(url: str) -> dict:
     return result
 
 
+def fetch_facebook(url: str) -> dict:
+    """Try to extract email from a Facebook page using mobile version."""
+    result = {
+        "success": False, "url": url, "title": "", "body_text": "",
+        "has_contact_form": False, "has_booking": False,
+        "has_cta": False, "page_meta": "", "error": "", "email": "",
+    }
+    if not url or "facebook.com" not in url.lower():
+        result["error"] = "Not a Facebook URL"
+        return result
+    # Try mobile Facebook which sometimes exposes more text without JS
+    mobile_url = re.sub(r'https?://(www\.)?facebook\.com', 'https://m.facebook.com', url)
+    fb_headers = {**HEADERS, "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"}
+    try:
+        resp = requests.get(mobile_url, headers=fb_headers, timeout=REQUEST_TIMEOUT, allow_redirects=True)
+    except Exception as e:
+        result["error"] = str(e)[:150]
+        return result
+    try:
+        raw_emails = re.findall(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', resp.text)
+        skip = ['noreply', 'no-reply', 'example.com', 'facebook.com', 'fb.com', 'sentry', 'w3.org']
+        clean_emails = [e for e in raw_emails if not any(s in e.lower() for s in skip)]
+        if clean_emails:
+            result["email"] = clean_emails[0]
+            result["success"] = True
+        soup = BeautifulSoup(resp.text, "html.parser")
+        for tag in soup(["script", "style", "nav"]):
+            tag.decompose()
+        body = soup.find("body")
+        raw_text = body.get_text(separator=" ") if body else soup.get_text(separator=" ")
+        result["body_text"] = clean_text(raw_text)[:2000]
+        result["success"] = True
+    except Exception as e:
+        result["error"] = f"Parse error: {str(e)[:120]}"
+    return result
+
+
 def build_prompt(company: str, contact: str, site_data: dict, town: str = "", stars: str = "", review_count: str = "") -> str:
     if site_data["success"]:
         site_summary = f"""WEBSITE DATA:
@@ -455,6 +492,8 @@ def upload():
             guesses.setdefault("stars", i)
         elif any(k in hl for k in ["review", "rating", "score", "count"]):
             guesses.setdefault("review_count", i)
+        elif any(k in hl for k in ["work type", "type", "category", "service", "trade", "industry"]):
+            guesses.setdefault("work_type", i)
 
     # Scan all collected column values to fill any gaps
     for i, vals in enumerate(col_samples):
@@ -515,22 +554,68 @@ def process_record():
 
     data         = request.get_json()
     company      = strip_bullets(data.get("company", "")) or "Unknown Company"
-    contact      = strip_bullets(data.get("contact", "")) or "there"
+    contact      = strip_bullets(data.get("contact", "")) or ""
     website      = strip_bullets(data.get("website", ""))
     phone        = strip_bullets(data.get("phone", ""))
     town_raw     = strip_bullets(data.get("town", "")).split("·")[0].strip()
-    # Discard values that are business age ("5+ years in business") not a town name
     town         = "" if re.search(r'\d+\+?\s*years', town_raw, re.IGNORECASE) else town_raw
     stars        = strip_bullets(data.get("stars", ""))
     review_count = strip_bullets(data.get("review_count", ""))
     email        = strip_bullets(data.get("email", ""))
+    work_type    = strip_bullets(data.get("work_type", "")).lower()
 
-    site_data = fetch_website(website)
-    # If no email from spreadsheet, try to scrape it from the website
+    # ── ELIGIBILITY FILTERS ────────────────────────────────────────────────────
+    def skip(reason):
+        return jsonify({
+            "Company Name": company, "Contact Name": contact,
+            "Email": "", "Website URL": website, "Phone Number": phone,
+            "Town": town, "Stars": stars, "Review Count": review_count,
+            "site_ok": False, "site_error": reason,
+            "subject": "", "email_body": f"SKIPPED — {reason}",
+            "skipped": True,
+        })
+
+    # 1. Must be a landscaping-related business (only filter if work_type column was mapped)
+    if work_type:
+        landscape_keywords = ["landscap", "garden", "arborist", "tree", "ground", "lawn", "turf", "horticulture", "outdoor"]
+        if not any(k in work_type for k in landscape_keywords):
+            return skip(f"Not a landscaper: {work_type}")
+
+    # 2. Star rating must be >= 4.5 (handle European comma decimal e.g. "4,9")
+    if stars:
+        try:
+            stars_f = float(stars.replace(",", "."))
+            if stars_f < 4.5:
+                return skip(f"Rating too low: {stars}")
+        except ValueError:
+            pass  # Can't parse, don't skip on uncertainty
+
+    # 3. Review count must be >= 2 (spreadsheet stores as negative e.g. -26 means 26 reviews)
+    if review_count:
+        try:
+            rc = abs(int(float(review_count.replace(",", "."))))
+            if rc < 2:
+                return skip(f"Too few reviews: {rc}")
+        except ValueError:
+            pass
+
+    # 4. Must have a website or Facebook page
+    is_facebook = "facebook.com" in website.lower()
+    if not website:
+        return skip("No website or Facebook URL")
+
+    # ── FETCH WEBSITE / FACEBOOK ───────────────────────────────────────────────
+    if is_facebook:
+        site_data = fetch_facebook(website)
+    else:
+        site_data = fetch_website(website)
+
+    # If no email from spreadsheet, try to scrape it from the website/Facebook
     if not email:
         email = site_data.get("email", "")
 
-    # Skip generation entirely if no email address found
+    # If website failed and it's not Facebook, also try Facebook search isn't possible here
+    # but if there's still no email, skip
     if not email:
         return jsonify({
             "Company Name":  company,
@@ -543,7 +628,8 @@ def process_record():
             "Review Count":  review_count,
             "site_ok":       site_data["success"],
             "site_error":    site_data.get("error", ""),
-            "email_1":       "SKIPPED — no email address found",
+            "subject":       "",
+            "email_body":    "SKIPPED — no email address found",
             "skipped":       True,
         })
 

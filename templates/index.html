@@ -206,6 +206,11 @@
       <div class="sample-val" id="sample-phone"></div>
     </div>
     <div class="map-row">
+      <div class="map-label">🔨 Work Type</div>
+      <select id="map-work_type"></select>
+      <span class="sample-val" id="sample-work_type"></span>
+    </div>
+    <div class="map-row">
       <div class="map-label">📍 Town / Area</div>
       <select id="map-town"></select>
       <div class="sample-val" id="sample-town"></div>
@@ -309,7 +314,7 @@ function showMappingPanel(data) {
   document.getElementById('mapping-count').textContent =
     `✅ ${data.total} rows detected · ${data.headers.length} columns`;
 
-  ['company','contact','email','website','phone','town','stars','review_count'].forEach(field => {
+  ['company','contact','email','website','phone','work_type','town','stars','review_count'].forEach(field => {
     const sel = document.getElementById('map-' + field);
     sel.innerHTML = '<option value="">— skip —</option>';
     data.headers.forEach((h, i) => {
@@ -341,6 +346,7 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   const townIdx         = document.getElementById('map-town').value;
   const starsIdx        = document.getElementById('map-stars').value;
   const reviewCountIdx  = document.getElementById('map-review_count').value;
+  const workTypeIdx     = document.getElementById('map-work_type').value;
 
   if (companyIdx === '') { showError('Please map the Company Name column.'); return; }
   if (websiteIdx === '') { showError('Please map the Website URL column.'); return; }
@@ -359,6 +365,7 @@ document.getElementById('start-btn').addEventListener('click', async () => {
     town:         townIdx        !== '' ? (row[parseInt(townIdx)]        || '') : '',
     stars:        starsIdx       !== '' ? (row[parseInt(starsIdx)]       || '') : '',
     review_count: reviewCountIdx !== '' ? (row[parseInt(reviewCountIdx)] || '') : '',
+    work_type:    workTypeIdx    !== '' ? (row[parseInt(workTypeIdx)]    || '') : '',
   }));
 
   const total = records.length;
@@ -401,12 +408,14 @@ document.getElementById('start-btn').addEventListener('click', async () => {
       }
 
       const data = await resp.json();
-      if (data.site_ok) {
-        log(`  ✅ Site scraped`, 'ok');
+      if (data.skipped) {
+        log(`  ⏭️  Skipped: ${data.site_error || data.email_body || 'no email'}`, 'warn');
+      } else if (data.site_ok) {
+        log(`  ✅ Site scraped · email found`, 'ok');
+        log(`  🤖 Email generated`, 'info');
       } else {
         log(`  ⚠️  Site failed: ${data.site_error || 'unknown'}`, 'warn');
       }
-      log(`  🤖 Emails generated`, 'info');
       results.push(data);
 
     } catch (e) {
