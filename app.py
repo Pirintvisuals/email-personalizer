@@ -186,7 +186,8 @@ We just started working with All Things Outside Ltd over in Ilfracombe — they 
 
 Can I send a quick video explaining how it works?
 
-[Your Name]
+Milan
++447478075473
 
    Rules:
    - The subject line must be on its own line at the top, before "Hey"
