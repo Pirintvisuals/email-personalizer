@@ -70,7 +70,7 @@ def fetch_website(url: str) -> dict:
     result = {
         "success": False, "url": url, "title": "", "body_text": "",
         "has_contact_form": False, "has_booking": False,
-        "has_cta": False, "page_meta": "", "error": "", "email": "", "contact_name": "",
+        "has_cta": False, "page_meta": "", "error": "", "email": "",
     }
     if not url or url.strip() in ("", "N/A", "n/a", "-"):
         result["error"] = "No URL provided"
@@ -120,30 +120,6 @@ def fetch_website(url: str) -> dict:
         skip_email = ['noreply', 'no-reply', 'donotreply', 'example.com', 'w3.org', 'schema.org', 'sentry', 'wix.com', 'wordpress']
         clean_emails = [e for e in raw_emails if not any(s in e.lower() for s in skip_email)]
         result["email"] = clean_emails[0] if clean_emails else ""
-
-        # Try to extract owner / contact name from page text
-        name_found = ""
-        name_patterns = [
-            r"(?:my name is|i[' ]?m|i am|owner[:\s]+|founder[:\s]+|director[:\s]+|run by[:\s]+|contact[:\s]+)([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)",
-            r"(?:hi,?\s+i[' ]?m\s+)([A-Z][a-z]+)",
-            r"(?:^|\.\s+)([A-Z][a-z]+\s+[A-Z][a-z]+)(?:\s+is the owner|\s+founded|\s+started|\s+runs)",
-        ]
-        body_sample = result["body_text"][:4000]
-        for pat in name_patterns:
-            m = re.search(pat, body_sample, re.IGNORECASE)
-            if m:
-                candidate = m.group(1).strip()
-                # Reject if it looks like a place or generic word
-                if len(candidate.split()) <= 3 and candidate.lower() not in ["the", "our", "your", "this", "that"]:
-                    name_found = candidate
-                    break
-        # Fallback: check meta author tag
-        if not name_found:
-            author_meta = soup.find("meta", attrs={"name": re.compile(r"author", re.I)})
-            if author_meta and author_meta.get("content"):
-                name_found = clean_text(author_meta["content"])
-        result["contact_name"] = name_found
-
         result["success"] = True
     except Exception as e:
         result["error"] = f"Parse error: {str(e)[:120]}"
@@ -197,11 +173,9 @@ Website: {site_data['url']}
 
 {site_summary}
 
-YOUR TASK — produce a JSON object with exactly these keys:
+YOUR TASK — produce a JSON object with exactly one key:
 
-1. "research_notes" — 2-4 sentences: what you observed on their site (services, lead capture quality, obvious gaps). If site failed to load, note it and describe what a typical landscaper site looks like.
-
-2. "email_1" — ONE cold outreach email. MUST follow this EXACT structure, word for word except the opener:
+"email_1" — ONE cold outreach email. MUST follow this EXACT structure, word for word except the opener:
 
 Subject: [short subject line — reference their review count or star rating]
 
@@ -248,15 +222,9 @@ def generate_emails(company: str, contact: str, site_data: dict, town: str = "",
                 return json.loads(match.group())
         except Exception:
             pass
-        return {
-            "research_notes": f"JSON parse error. Raw: {raw[:300]}",
-            "email_1": "ERROR",
-        }
+        return {"email_1": f"ERROR — JSON parse failed. Raw: {raw[:200]}"}
     except Exception as e:
-        return {
-            "research_notes": f"API error: {str(e)[:200]}",
-            "email_1": "ERROR",
-        }
+        return {"email_1": f"ERROR — {str(e)[:200]}"}
 
 
 def build_excel_bytes(records: list) -> bytes:
@@ -266,8 +234,7 @@ def build_excel_bytes(records: list) -> bytes:
     ws.title = "Email Campaign"
     columns = [
         "Company Name", "Contact Name", "Email", "Website URL", "Phone Number",
-        "Town", "Stars", "Review Count",
-        "Research Notes", "Email", "Status"
+        "Town", "Stars", "Review Count", "Email", "Status"
     ]
     header_fill = PatternFill("solid", fgColor="1F4E79")
     header_font = Font(color="FFFFFF", bold=True, size=11)
@@ -282,18 +249,17 @@ def build_excel_bytes(records: list) -> bytes:
     for ri, rec in enumerate(records, 2):
         fill = fill_e if ri % 2 == 0 else fill_o
         for ci, val in enumerate([
-            rec.get("Company Name", ""),   rec.get("Contact Name", ""),
-            rec.get("Email", ""),          rec.get("Website URL", ""),
-            rec.get("Phone Number", ""),   rec.get("Town", ""),
-            rec.get("Stars", ""),          rec.get("Review Count", ""),
-            rec.get("research_notes", ""), rec.get("email_1", ""),
-            "",
+            rec.get("Company Name", ""),  rec.get("Contact Name", ""),
+            rec.get("Email", ""),         rec.get("Website URL", ""),
+            rec.get("Phone Number", ""),  rec.get("Town", ""),
+            rec.get("Stars", ""),         rec.get("Review Count", ""),
+            rec.get("email_1", ""),       "",
         ], 1):
             cell = ws.cell(row=ri, column=ci, value=val)
             cell.fill = fill
             cell.alignment = Alignment(vertical="top", wrap_text=True)
 
-    for ci, w in enumerate([28, 20, 25, 35, 18, 20, 10, 12, 50, 80, 15], 1):
+    for ci, w in enumerate([28, 20, 25, 35, 18, 20, 10, 12, 80, 15], 1):
         ws.column_dimensions[ws.cell(row=1, column=ci).column_letter].width = w
     ws.row_dimensions[1].height = 30
     for ri in range(2, len(records) + 2):
@@ -454,29 +420,41 @@ def process_record():
     email        = strip_bullets(data.get("email", ""))
 
     site_data = fetch_website(website)
-    # If no email from spreadsheet, use one scraped from the website
+    # If no email from spreadsheet, try to scrape it from the website
     if not email:
         email = site_data.get("email", "")
-    # If no contact name from spreadsheet, use one scraped from the website
-    if not contact or contact == "there":
-        scraped_name = site_data.get("contact_name", "")
-        if scraped_name:
-            contact = scraped_name
-    result    = generate_emails(company, contact, site_data, town, stars, review_count)
+
+    # Skip generation entirely if no email address found
+    if not email:
+        return jsonify({
+            "Company Name":  company,
+            "Contact Name":  contact,
+            "Email":         "",
+            "Website URL":   website,
+            "Phone Number":  phone,
+            "Town":          town,
+            "Stars":         stars,
+            "Review Count":  review_count,
+            "site_ok":       site_data["success"],
+            "site_error":    site_data.get("error", ""),
+            "email_1":       "SKIPPED — no email address found",
+            "skipped":       True,
+        })
+
+    result = generate_emails(company, contact, site_data, town, stars, review_count)
 
     return jsonify({
-        "Company Name":   company,
-        "Contact Name":   contact,
-        "Email":          email,
-        "Website URL":    website,
-        "Phone Number":   phone,
-        "Town":           town,
-        "Stars":          stars,
-        "Review Count":   review_count,
-        "site_ok":        site_data["success"],
-        "site_error":     site_data.get("error", ""),
-        "research_notes": result.get("research_notes", ""),
-        "email_1":        result.get("email_1", ""),
+        "Company Name":  company,
+        "Contact Name":  contact,
+        "Email":         email,
+        "Website URL":   website,
+        "Phone Number":  phone,
+        "Town":          town,
+        "Stars":         stars,
+        "Review Count":  review_count,
+        "site_ok":       site_data["success"],
+        "site_error":    site_data.get("error", ""),
+        "email_1":       result.get("email_1", ""),
     })
 
 

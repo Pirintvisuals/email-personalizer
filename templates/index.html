@@ -396,7 +396,7 @@ document.getElementById('start-btn').addEventListener('click', async () => {
       if (!resp.ok) {
         const err = await resp.text();
         log(`  ❌ Server error: ${err.slice(0,120)}`, 'err');
-        results.push({ ...rec, research_notes: 'Server error', email_1: '' });
+        results.push({ ...rec, email_1: 'Server error' });
         continue;
       }
 
@@ -414,7 +414,7 @@ document.getElementById('start-btn').addEventListener('click', async () => {
       results.push({
         'Company Name': rec.company, 'Contact Name': rec.contact,
         'Website URL': rec.website, 'Phone Number': rec.phone,
-        research_notes: 'Network error', email_1: '',
+        email_1: 'Network error',
       });
     }
   }
