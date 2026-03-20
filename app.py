@@ -15,7 +15,7 @@ from bs4 import BeautifulSoup
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from flask import Flask, render_template, request, jsonify, send_file
-from google import genai
+from groq import Groq
 
 # ─── CONFIG ────────────────────────────────────────────────────────────────────
 
@@ -29,7 +29,7 @@ if os.path.isfile(_env):
                 _k, _v = _line.split("=", 1)
                 os.environ.setdefault(_k.strip(), _v.strip())
 
-GEMINI_MODEL    = "gemini-2.5-flash"
+GROQ_MODEL      = "llama-3.3-70b-versatile"
 REQUEST_TIMEOUT = 10
 
 HEADERS = {
@@ -46,18 +46,18 @@ HEADERS = {
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
-# Lazy Gemini client — initialised on first use so a missing env var
+# Lazy Groq client — initialised on first use so a missing env var
 # doesn't crash the entire serverless function at import time.
-_gemini_client = None
+_groq_client = None
 
-def get_gemini_client():
-    global _gemini_client
-    if _gemini_client is None:
-        api_key = os.environ.get("GEMINI_API_KEY", "")
+def get_groq_client():
+    global _groq_client
+    if _groq_client is None:
+        api_key = os.environ.get("GROQ_API_KEY", "")
         if not api_key:
-            raise RuntimeError("GEMINI_API_KEY environment variable is not set.")
-        _gemini_client = genai.Client(api_key=api_key)
-    return _gemini_client
+            raise RuntimeError("GROQ_API_KEY environment variable is not set.")
+        _groq_client = Groq(api_key=api_key)
+    return _groq_client
 
 
 # ─── HELPERS ───────────────────────────────────────────────────────────────────
@@ -213,12 +213,14 @@ Return ONLY valid JSON. No markdown fences. No extra text."""
 
 def generate_emails(company: str, contact: str, site_data: dict, town: str = "", stars: str = "", review_count: str = "") -> dict:
     prompt = build_prompt(company, contact, site_data, town, stars, review_count)
+    raw = ""
     try:
-        response = get_gemini_client().models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt,
+        response = get_groq_client().chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
         )
-        raw = response.text.strip()
+        raw = response.choices[0].message.content.strip()
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw.strip())
         return json.loads(raw)
