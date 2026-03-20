@@ -214,7 +214,26 @@ def build_prompt(company: str, contact: str, site_data: dict, town: str = "", st
             'DO NOT use "I hope", "reaching out", or generic openers.'
         )
 
-    return f"""You are a direct, no-fluff B2B cold email writer. You write for a lead-filtering service that helps landscaping companies stop wasting time on tyre-kickers.
+    # Pick subject line style based on hash
+    subj_style = hash(company + "subj") % 8
+    if subj_style == 0:
+        subject_instruction = f'Ultra-simple, 1-3 words — e.g. "thoughts on this?" or "quick one" or "{first_name}?" (use their first name if known)'
+    elif subj_style == 1:
+        subject_instruction = f'Personalized value — e.g. "better leads for {company}?" or "tyre-kickers vs real clients"'
+    elif subj_style == 2:
+        subject_instruction = f'Curiosity — e.g. "noticed your reviews" or "working with a landscaper in {area}"'
+    elif subj_style == 3:
+        subject_instruction = f'Pattern interrupt — reply style, e.g. "re: {company}" (looks like a follow-up thread)'
+    elif subj_style == 4:
+        subject_instruction = f'First name only if known — e.g. "{first_name}" or leave completely blank for highest open rate'
+    elif subj_style == 5:
+        subject_instruction = f'Company reference — e.g. "{company}" or "{company} — quick question"'
+    elif subj_style == 6:
+        subject_instruction = f'Stats-driven — e.g. "your {review_count_clean or ""} reviews" or "5-star leads" or "300% better leads — {company}"'
+    else:
+        subject_instruction = f'Conversion-focused — e.g. "quality over quantity?" or "{first_name} — conversion rate" or "tyre-kickers?"'
+
+    return f"""You are a direct, no-fluff B2B cold email writer for a lead-filtering service helping landscaping companies stop wasting time on tyre-kickers.
 
 Company: {company}
 Contact name (use ONLY if clearly a real first name, otherwise leave blank): {contact}
@@ -223,15 +242,15 @@ Website: {site_data['url']}
 
 {site_summary}
 
-YOUR TASK — return a JSON object with these keys:
+YOUR TASK — return a JSON object with exactly THREE keys:
 
-1. "contact_name" — If you can clearly identify the owner or main contact's FIRST NAME from the website content above, return just the first name (e.g. "John"). If you are not confident, return "".
+1. "contact_name" — If you can clearly identify the owner or main contact's FIRST NAME from the website content, return just the first name (e.g. "John"). If not confident, return "".
 
-2. "email_1" — ONE cold outreach email. Follow this structure exactly — only the subject line and opener change:
+2. "subject" — Subject line ONLY (no "Subject:" prefix). Style to use: {subject_instruction}
 
-Subject: [subject line — max 7 words, specific, NO "quick question" cliché]
+3. "email_body" — The email body only (NO subject line in here). Follow this structure exactly:
 
-Hey [first name or remove greeting if unknown],
+Hey [first name if known, otherwise just skip the greeting entirely],
 
 [PERSONALISED OPENER — {opener_hint}]
 
@@ -245,14 +264,14 @@ Milan
 +447478075473
 
 Rules:
-- Subject line first, before the greeting
-- Use the contact's first name if known — NEVER write "there" or "Hi,"
-- Opener: 1–2 sentences, sharp and specific — NOT generic
+- Use the contact's first name if known — NEVER write "there" or leave a blank placeholder
+- If no name known, skip the greeting line entirely and start with the opener
+- Opener: 1–2 sentences, sharp and specific to THIS company
 - Everything after the opener is FIXED word for word as above
-- Total 80–110 words excluding subject
-- NO "I hope", NO "just following up", NO fluff
+- Total 80–110 words in email_body
+- NO "I hope", NO "just following up", NO fluff, NO "Hi,"
 
-Return ONLY valid JSON. No markdown. No extra text."""
+Return ONLY valid JSON. No markdown fences. No extra text."""
 
 
 def generate_emails(company: str, contact: str, site_data: dict, town: str = "", stars: str = "", review_count: str = "") -> dict:
@@ -274,30 +293,62 @@ def generate_emails(company: str, contact: str, site_data: dict, town: str = "",
                 return json.loads(match.group())
         except Exception:
             pass
-        return {"email_1": f"ERROR — JSON parse failed. Raw: {raw[:200]}"}
+        return {"subject": "ERROR", "email_body": f"JSON parse failed. Raw: {raw[:200]}"}
     except Exception as e:
-        return {"email_1": f"ERROR — {str(e)[:200]}"}
+        return {"subject": "ERROR", "email_body": str(e)[:200]}
 
 
 def build_excel_bytes(records: list) -> bytes:
     """Generate the campaign Excel in memory and return raw bytes."""
     wb = openpyxl.Workbook()
+
+    # ── Sheet 1: Send-ready (the 3 columns you actually need for sending) ──
     ws = wb.active
-    ws.title = "Email Campaign"
-    columns = [
-        "Company Name", "Contact Name", "Email", "Website URL", "Phone Number",
-        "Town", "Stars", "Review Count", "Email", "Status"
-    ]
-    header_fill = PatternFill("solid", fgColor="1F4E79")
-    header_font = Font(color="FFFFFF", bold=True, size=11)
-    for ci, col in enumerate(columns, 1):
+    ws.title = "Send Ready"
+    send_cols = ["Email Address", "Subject", "Email Body"]
+    header_fill  = PatternFill("solid", fgColor="1B5E20")
+    header_font  = Font(color="FFFFFF", bold=True, size=11)
+    for ci, col in enumerate(send_cols, 1):
         cell = ws.cell(row=1, column=ci, value=col)
         cell.fill = header_fill
         cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    fill_e = PatternFill("solid", fgColor="E8F5E9")
+    fill_o = PatternFill("solid", fgColor="FFFFFF")
+    for ri, rec in enumerate(records, 2):
+        if rec.get("skipped") or not rec.get("Email", "").strip():
+            continue
+        fill = fill_e if ri % 2 == 0 else fill_o
+        for ci, val in enumerate([
+            rec.get("Email", ""),
+            rec.get("subject", ""),
+            rec.get("email_body", rec.get("email_1", "")),
+        ], 1):
+            cell = ws.cell(row=ri, column=ci, value=val)
+            cell.fill = fill
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+
+    for ci, w in enumerate([30, 40, 90], 1):
+        ws.column_dimensions[ws.cell(row=1, column=ci).column_letter].width = w
+    ws.row_dimensions[1].height = 30
+    for ri in range(2, len(records) + 2):
+        ws.row_dimensions[ri].height = 130
+    ws.freeze_panes = "A2"
+
+    # ── Sheet 2: Full data (all fields for reference) ──
+    ws2 = wb.create_sheet("Full Data")
+    all_cols = [
+        "Company Name", "Contact Name", "Email", "Website URL",
+        "Phone Number", "Town", "Stars", "Review Count", "Subject", "Email Body"
+    ]
+    hf2 = PatternFill("solid", fgColor="1F4E79")
+    for ci, col in enumerate(all_cols, 1):
+        cell = ws2.cell(row=1, column=ci, value=col)
+        cell.fill = hf2
+        cell.font = Font(color="FFFFFF", bold=True, size=11)
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-    fill_e = PatternFill("solid", fgColor="D6E4F0")
-    fill_o = PatternFill("solid", fgColor="FFFFFF")
     for ri, rec in enumerate(records, 2):
         fill = fill_e if ri % 2 == 0 else fill_o
         for ci, val in enumerate([
@@ -305,18 +356,19 @@ def build_excel_bytes(records: list) -> bytes:
             rec.get("Email", ""),         rec.get("Website URL", ""),
             rec.get("Phone Number", ""),  rec.get("Town", ""),
             rec.get("Stars", ""),         rec.get("Review Count", ""),
-            rec.get("email_1", ""),       "",
+            rec.get("subject", ""),
+            rec.get("email_body", rec.get("email_1", "")),
         ], 1):
-            cell = ws.cell(row=ri, column=ci, value=val)
+            cell = ws2.cell(row=ri, column=ci, value=val)
             cell.fill = fill
             cell.alignment = Alignment(vertical="top", wrap_text=True)
 
-    for ci, w in enumerate([28, 20, 25, 35, 18, 20, 10, 12, 80, 15], 1):
-        ws.column_dimensions[ws.cell(row=1, column=ci).column_letter].width = w
-    ws.row_dimensions[1].height = 30
+    for ci, w in enumerate([28, 20, 28, 35, 18, 16, 8, 10, 35, 80], 1):
+        ws2.column_dimensions[ws2.cell(row=1, column=ci).column_letter].width = w
+    ws2.row_dimensions[1].height = 30
     for ri in range(2, len(records) + 2):
-        ws.row_dimensions[ri].height = 120
-    ws.freeze_panes = "A2"
+        ws2.row_dimensions[ri].height = 120
+    ws2.freeze_panes = "A2"
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -515,7 +567,8 @@ def process_record():
         "Review Count":  review_count,
         "site_ok":       site_data["success"],
         "site_error":    site_data.get("error", ""),
-        "email_1":       result.get("email_1", ""),
+        "subject":       result.get("subject", ""),
+        "email_body":    result.get("email_body", result.get("email_1", "")),
     })
 
 
