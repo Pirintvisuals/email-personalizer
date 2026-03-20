@@ -138,7 +138,9 @@ def build_prompt(company: str, contact: str, site_data: dict, town: str = "", re
     reviews_line = f"Reviews: {reviews}" if reviews else ""
     extra = "\n".join(filter(None, [town_line, reviews_line]))
 
-    return f"""You are an expert B2B cold email copywriter for a lead-filtering service that helps landscaping companies stop wasting time on bad leads.
+    first_name = contact.split()[0] if contact and contact.strip() else "there"
+
+    return f"""You are an expert B2B cold email copywriter for a lead-generation service that helps landscaping companies get more clients every month.
 
 Company: {company}
 Contact: {contact}
@@ -148,30 +150,44 @@ Website: {site_data['url']}
 {site_summary}
 
 YOUR TASK — produce a JSON object with exactly these keys:
-1. "research_notes" — 2-4 sentences: what you observed on their site (services, lead capture quality, obvious gaps). If site failed to load, note it and describe what a typical landscaper site looks like.
-2. "email_1" — initial cold outreach (100-150 words). Rules:
-   - First line is "Subject: ..."
-   - Reference something SPECIFIC from their website or business
-   - If a town/area is provided, naturally mention the local area (e.g. "serving the {town} area")
-   - If reviews are provided, reference their reputation (e.g. their rating or review count) to show you've done your research
-   - Identify a lead capture / lead quality problem they likely have
-   - Explain how we pre-qualify leads so they only talk to serious prospects
-   - End with ONE CTA (e.g., "Worth a 15-min call this week?")
-   - Tone: direct, peer-to-peer, no fluff
-   - NO "I hope this email finds you well"
-   - Sign off: [Your Name]
-3. "email_2" — follow-up 1, send day 3 (~80-100 words):
-   - Subject line first
-   - If a town is provided, reference local competition or seasonal demand in that area
-   - Add a specific market insight: local competition, seasonal lead spikes, or stat about bad leads wasting crew time
-   - One pain point, one nudge — no hard sell
-4. "email_3" — follow-up 2, send day 8 (~80-100 words):
-   - Subject line first
-   - Open with a brief case study / success metric (e.g. "One landscaper cut quote-to-close time by 40% after filtering...")
-   - Soft close referencing {company} specifically
-   - This is the final touch
 
-Return ONLY valid JSON. No markdown fences. No extra text. Make email_1 specific to THIS company."""
+1. "research_notes" — 2-4 sentences: what you observed on their site (services, lead capture quality, obvious gaps). If site failed to load, note it and describe what a typical landscaper site looks like.
+
+2. "email_1" — initial cold outreach. MUST follow this EXACT structure (fill in the placeholders naturally):
+
+Hey {first_name},
+
+[One sentence personalised opener referencing something specific — their star rating, reviews, work type, or something from their website. E.g. "Noticed [Company] has [X stars] on Google — solid reputation for landscaping in [town]." Keep it genuine, 1 sentence max.]
+
+Just reaching out because we help landscapers in [{town if town else "your area"}] get an extra 3–5 new clients/jobs each month on a complete pay-on-results basis.
+
+We just helped [invent a realistic UK landscaping business name], a business down in [nearby UK town] get [specific result, e.g. "7 new garden design contracts worth £14,000 in 6 weeks"].
+
+Can I send a quick video explaining how it works?
+
+[Your Name]
+
+   Rules:
+   - First line is "Subject: ..." (before the Hey line)
+   - Use "{first_name}" as the first name
+   - The personalised opener MUST reference their reviews/rating if provided, or something from their website
+   - Keep total length 80–120 words (excluding subject line)
+   - NO "I hope this email finds you well", NO fluff, NO hard sell
+   - The case study business and result must sound realistic and specific
+
+3. "email_2" — follow-up, send day 3 (~80 words):
+   - Subject line first
+   - Reference local competition or seasonal demand in {town if town else "their area"}
+   - One pain point, one soft nudge
+   - End: "Can I send you the video?"
+
+4. "email_3" — follow-up, send day 8 (~80 words):
+   - Subject line first
+   - Brief case study / success stat
+   - Soft close mentioning {company} specifically
+   - Final touch, no pressure
+
+Return ONLY valid JSON. No markdown fences. No extra text."""
 
 
 def generate_emails(company: str, contact: str, site_data: dict, town: str = "", reviews: str = "") -> dict:
