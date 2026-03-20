@@ -200,6 +200,16 @@
       <select id="map-phone"></select>
       <div class="sample-val" id="sample-phone"></div>
     </div>
+    <div class="map-row">
+      <div class="map-label">📍 Town / Area</div>
+      <select id="map-town"></select>
+      <div class="sample-val" id="sample-town"></div>
+    </div>
+    <div class="map-row">
+      <div class="map-label">⭐ Reviews</div>
+      <select id="map-reviews"></select>
+      <div class="sample-val" id="sample-reviews"></div>
+    </div>
 
     <button class="btn" id="start-btn">⚡ Generate Campaign</button>
   </div>
@@ -289,7 +299,7 @@ function showMappingPanel(data) {
   document.getElementById('mapping-count').textContent =
     `✅ ${data.total} rows detected · ${data.headers.length} columns`;
 
-  ['company','contact','website','phone'].forEach(field => {
+  ['company','contact','website','phone','town','reviews'].forEach(field => {
     const sel = document.getElementById('map-' + field);
     sel.innerHTML = '<option value="">— skip —</option>';
     data.headers.forEach((h, i) => {
@@ -317,6 +327,8 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   const contactIdx = document.getElementById('map-contact').value;
   const websiteIdx = document.getElementById('map-website').value;
   const phoneIdx   = document.getElementById('map-phone').value;
+  const townIdx    = document.getElementById('map-town').value;
+  const reviewsIdx = document.getElementById('map-reviews').value;
 
   if (companyIdx === '') { showError('Please map the Company Name column.'); return; }
   if (websiteIdx === '') { showError('Please map the Website URL column.'); return; }
@@ -331,6 +343,8 @@ document.getElementById('start-btn').addEventListener('click', async () => {
     contact: contactIdx !== '' ? (row[parseInt(contactIdx)] || '') : '',
     website: websiteIdx !== '' ? (row[parseInt(websiteIdx)] || '') : '',
     phone:   phoneIdx   !== '' ? (row[parseInt(phoneIdx)]   || '') : '',
+    town:    townIdx    !== '' ? (row[parseInt(townIdx)]    || '') : '',
+    reviews: reviewsIdx !== '' ? (row[parseInt(reviewsIdx)] || '') : '',
   }));
 
   const total = records.length;

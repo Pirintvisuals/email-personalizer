@@ -121,7 +121,7 @@ def fetch_website(url: str) -> dict:
     return result
 
 
-def build_prompt(company: str, contact: str, site_data: dict) -> str:
+def build_prompt(company: str, contact: str, site_data: dict, town: str = "", reviews: str = "") -> str:
     if site_data["success"]:
         site_summary = f"""WEBSITE DATA:
 - Title: {site_data['title']}
@@ -134,11 +134,16 @@ def build_prompt(company: str, contact: str, site_data: dict) -> str:
     else:
         site_summary = f"WEBSITE FETCH FAILED: {site_data['error']}"
 
+    town_line    = f"Town/Area: {town}" if town else ""
+    reviews_line = f"Reviews: {reviews}" if reviews else ""
+    extra = "\n".join(filter(None, [town_line, reviews_line]))
+
     return f"""You are an expert B2B cold email copywriter for a lead-filtering service that helps landscaping companies stop wasting time on bad leads.
 
 Company: {company}
 Contact: {contact}
 Website: {site_data['url']}
+{extra}
 
 {site_summary}
 
@@ -147,6 +152,8 @@ YOUR TASK — produce a JSON object with exactly these keys:
 2. "email_1" — initial cold outreach (100-150 words). Rules:
    - First line is "Subject: ..."
    - Reference something SPECIFIC from their website or business
+   - If a town/area is provided, naturally mention the local area (e.g. "serving the {town} area")
+   - If reviews are provided, reference their reputation (e.g. their rating or review count) to show you've done your research
    - Identify a lead capture / lead quality problem they likely have
    - Explain how we pre-qualify leads so they only talk to serious prospects
    - End with ONE CTA (e.g., "Worth a 15-min call this week?")
@@ -155,6 +162,7 @@ YOUR TASK — produce a JSON object with exactly these keys:
    - Sign off: [Your Name]
 3. "email_2" — follow-up 1, send day 3 (~80-100 words):
    - Subject line first
+   - If a town is provided, reference local competition or seasonal demand in that area
    - Add a specific market insight: local competition, seasonal lead spikes, or stat about bad leads wasting crew time
    - One pain point, one nudge — no hard sell
 4. "email_3" — follow-up 2, send day 8 (~80-100 words):
@@ -166,8 +174,8 @@ YOUR TASK — produce a JSON object with exactly these keys:
 Return ONLY valid JSON. No markdown fences. No extra text. Make email_1 specific to THIS company."""
 
 
-def generate_emails(company: str, contact: str, site_data: dict) -> dict:
-    prompt = build_prompt(company, contact, site_data)
+def generate_emails(company: str, contact: str, site_data: dict, town: str = "", reviews: str = "") -> dict:
+    prompt = build_prompt(company, contact, site_data, town, reviews)
     try:
         response = get_gemini_client().models.generate_content(
             model=GEMINI_MODEL,
@@ -202,6 +210,7 @@ def build_excel_bytes(records: list) -> bytes:
     ws.title = "Email Campaign"
     columns = [
         "Company Name", "Contact Name", "Website URL", "Phone Number",
+        "Town", "Reviews",
         "Research Notes", "Email 1 (Initial)", "Email 2 (Follow-up Day 3)",
         "Email 3 (Follow-up Day 8)", "Status"
     ]
@@ -220,6 +229,7 @@ def build_excel_bytes(records: list) -> bytes:
         for ci, val in enumerate([
             rec.get("Company Name", ""),   rec.get("Contact Name", ""),
             rec.get("Website URL", ""),    rec.get("Phone Number", ""),
+            rec.get("Town", ""),           rec.get("Reviews", ""),
             rec.get("research_notes", ""), rec.get("email_1", ""),
             rec.get("email_2", ""),        rec.get("email_3", ""),
             "",
@@ -228,7 +238,7 @@ def build_excel_bytes(records: list) -> bytes:
             cell.fill = fill
             cell.alignment = Alignment(vertical="top", wrap_text=True)
 
-    for ci, w in enumerate([28, 20, 35, 18, 50, 70, 70, 70, 15], 1):
+    for ci, w in enumerate([28, 20, 35, 18, 20, 15, 50, 70, 70, 70, 15], 1):
         ws.column_dimensions[ws.cell(row=1, column=ci).column_letter].width = w
     ws.row_dimensions[1].height = 30
     for ri in range(2, len(records) + 2):
@@ -267,14 +277,32 @@ def upload():
     if not all_rows:
         return jsonify({"error": "File is empty"}), 400
 
-    headers = [str(c).strip() if c is not None else "" for c in all_rows[0]]
-    sample  = [str(c).strip() if c is not None else "" for c in (all_rows[1] if len(all_rows) > 1 else [])]
+    # Skip leading blank rows before the header
+    while all_rows and all(c is None or str(c).strip() == "" for c in all_rows[0]):
+        all_rows = all_rows[1:]
 
-    # Auto-guess column indices
+    if not all_rows:
+        return jsonify({"error": "File is empty"}), 400
+
+    headers = [str(c).strip() if c is not None else "" for c in all_rows[0]]
+
+    # If all headers are blank the sheet has no header row — generate names and use all rows as data
+    if all(h == "" for h in headers):
+        num_cols = len(headers)
+        headers = [f"Col {i+1}" for i in range(num_cols)]
+        data_start = 0  # first row IS data
+    else:
+        data_start = 1  # first row was the header
+
+    sample = [str(c).strip() if c is not None else "" for c in (all_rows[data_start] if len(all_rows) > data_start else [])]
+
+    # Auto-guess column indices from header names
     guesses = {}
     for i, h in enumerate(headers):
         hl = h.lower()
-        if any(k in hl for k in ["company", "business"]) and "contact" not in hl:
+        if any(k in hl for k in ["company", "business", "name"]) and "contact" not in hl and i == 0:
+            guesses.setdefault("company", i)
+        elif any(k in hl for k in ["company", "business"]) and "contact" not in hl:
             guesses.setdefault("company", i)
         elif any(k in hl for k in ["contact", "first name", "person"]):
             guesses.setdefault("contact", i)
@@ -282,10 +310,39 @@ def upload():
             guesses.setdefault("website", i)
         elif any(k in hl for k in ["phone", "tel", "mobile", "cell"]):
             guesses.setdefault("phone", i)
+        elif any(k in hl for k in ["town", "city", "area", "location", "region", "address"]):
+            guesses.setdefault("town", i)
+        elif any(k in hl for k in ["review", "rating", "star", "score"]):
+            guesses.setdefault("reviews", i)
+
+    # Also scan sample values to fill any gaps (always runs, not just fallback)
+    for i, val in enumerate(sample):
+        if not val:
+            continue
+        if re.search(r'https?://', val) or val.startswith("www."):
+            guesses.setdefault("website", i)
+        elif re.search(r'\+?\d[\d\s\-]{7,}', val):
+            guesses.setdefault("phone", i)
+        elif i == 0 and val:
+            guesses.setdefault("company", i)
+        # Town: short alphabetic string, not a number, not a URL, not a phone
+        elif (
+            "town" not in guesses
+            and re.match(r'^[A-Za-z][A-Za-z\s\-]{1,30}$', val)
+            and not re.search(r'\d', val)
+            and len(val.split()) <= 4
+        ):
+            guesses.setdefault("town", i)
+        # Reviews: looks like a plain number (possibly negative)
+        elif "reviews" not in guesses and re.match(r'^-?\d+(\.\d+)?$', val):
+            # prefer columns whose header contains star/review hint
+            h = headers[i].lower() if i < len(headers) else ""
+            if any(k in h for k in ["review", "star", "rating", "score"]):
+                guesses.setdefault("reviews", i)
 
     # Return all data rows as plain arrays (frontend applies col mapping)
     data_rows = []
-    for row in all_rows[1:]:
+    for row in all_rows[data_start:]:
         if all(c is None or str(c).strip() == "" for c in row):
             continue
         data_rows.append([str(c).strip() if c is not None else "" for c in row])
@@ -308,15 +365,19 @@ def process_record():
     contact = data.get("contact", "") or "there"
     website = data.get("website", "")
     phone   = data.get("phone", "")
+    town    = data.get("town", "")
+    reviews = data.get("reviews", "")
 
     site_data = fetch_website(website)
-    result    = generate_emails(company, contact, site_data)
+    result    = generate_emails(company, contact, site_data, town, reviews)
 
     return jsonify({
         "Company Name":   company,
         "Contact Name":   contact,
         "Website URL":    website,
         "Phone Number":   phone,
+        "Town":           town,
+        "Reviews":        reviews,
         "site_ok":        site_data["success"],
         "site_error":     site_data.get("error", ""),
         "research_notes": result.get("research_notes", ""),
