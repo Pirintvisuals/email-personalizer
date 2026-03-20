@@ -590,11 +590,11 @@ def process_record():
         except ValueError:
             pass  # Can't parse, don't skip on uncertainty
 
-    # 3. Review count must be >= 2 (spreadsheet stores as negative e.g. -26 means 26 reviews)
+    # 3. Review count must be >= 1 (spreadsheet stores as negative e.g. -3 means 3 reviews)
     if review_count:
         try:
             rc = abs(int(float(review_count.replace(",", "."))))
-            if rc < 2:
+            if rc < 1:
                 return skip(f"Too few reviews: {rc}")
         except ValueError:
             pass
