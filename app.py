@@ -152,34 +152,86 @@ def build_prompt(company: str, contact: str, site_data: dict, town: str = "", st
     review_line = f"Review Count: {review_count_clean}" if review_count_clean else ""
     extra = "\n".join(filter(None, [town_line, stars_line, review_line]))
 
-    first_name = contact.split()[0] if contact and contact.strip() else "there"
+    first_name = contact.split()[0] if contact and contact.strip() and contact != "there" else "{FIRST_NAME}"
 
-    # Build the personalised opener instruction based on available data
+    # Pick an opener style based on company name hash so it's consistent but varied
+    style = hash(company) % 4
+
+    area = town or "the area"
+
     if review_count_clean and stars_clean:
-        opener_hint = f'Reference their EXACT numbers: "{review_count_clean} reviews and a {stars_clean}-star rating — [Company] has clearly built a trusted name in {town or "the area"}. The question is whether the leads coming in are actually worth your time."'
+        stats = f"{review_count_clean} reviews and {stars_clean} stars"
+        if style == 0:
+            opener_hint = (
+                f'Pattern interrupt — lead with a bold honest observation. E.g. '
+                f'"{review_count_clean} reviews, {stars_clean} stars — '
+                f'honestly that\'s a solid rep for a landscaper in {area}. '
+                f'My bet is you\'re still taking calls from people who were never going to book."'
+            )
+        elif style == 1:
+            opener_hint = (
+                f'Ask a direct question that makes them think. E.g. '
+                f'"Quick one — {company} has {stats} on Google. '
+                f'How many of the enquiries you got last month actually turned into paid work?"'
+            )
+        elif style == 2:
+            opener_hint = (
+                f'Lead with empathy and a sharp insight. E.g. '
+                f'"Ran across {company} online — {stats} in {area}. '
+                f'I know how it goes at your level: plenty of people calling, '
+                f'half of them just price-shopping or tyre-kicking."'
+            )
+        else:
+            opener_hint = (
+                f'Start with a genuine compliment then flip it. E.g. '
+                f'"{stats} — {company} clearly knows what they\'re doing in {area}. '
+                f'Still, I\'d guess at least a few hours a week go on enquiries that go nowhere."'
+            )
     elif stars_clean:
-        opener_hint = f'Reference their star rating: "[Company] has a {stars_clean}-star rating on Google — clearly doing great work in {town or "the area"}. The question is whether every lead coming in is actually worth your time."'
+        if style % 2 == 0:
+            opener_hint = (
+                f'Pattern interrupt with their star rating. E.g. '
+                f'"{stars_clean} stars on Google — {company} is clearly doing good work in {area}. '
+                f'The question is whether every enquiry you\'re getting is actually worth your time."'
+            )
+        else:
+            opener_hint = (
+                f'Direct question using their rating. E.g. '
+                f'"Looked up {company} — {stars_clean} stars. Solid. '
+                f'How much of your week goes on leads that never actually convert?"'
+            )
     elif review_count_clean:
-        opener_hint = f'Reference their review count: "{review_count_clean} Google reviews — [Company] has clearly earned a solid reputation. The question is whether the enquiries coming in are actually worth your time."'
+        opener_hint = (
+            f'Reference their review count with a sharp hook. E.g. '
+            f'"{review_count_clean} Google reviews — clearly a trusted name. '
+            f'I\'d still bet some of those enquiries weren\'t worth picking up the phone for."'
+        )
     else:
-        opener_hint = 'Reference something specific from their website — their services, location, or something that shows you\'ve looked them up. End with a question like "The question is whether the leads coming in are actually worth your time."'
+        opener_hint = (
+            'Write a pattern-interrupting opener based on something specific from their website — '
+            'their services, a specific project type, or something genuine. '
+            'End with a question or bold observation about lead quality. '
+            'DO NOT use "I hope", "reaching out", or generic openers.'
+        )
 
-    return f"""You are an expert B2B cold email copywriter for a lead-filtering service that helps landscaping companies stop wasting time on tyre-kickers and only speak to serious, quality leads.
+    return f"""You are a direct, no-fluff B2B cold email writer. You write for a lead-filtering service that helps landscaping companies stop wasting time on tyre-kickers.
 
 Company: {company}
-Contact: {contact}
+Contact name (use ONLY if clearly a real first name, otherwise leave blank): {contact}
 Website: {site_data['url']}
 {extra}
 
 {site_summary}
 
-YOUR TASK — produce a JSON object with exactly one key:
+YOUR TASK — return a JSON object with these keys:
 
-"email_1" — ONE cold outreach email. MUST follow this EXACT structure, word for word except the opener:
+1. "contact_name" — If you can clearly identify the owner or main contact's FIRST NAME from the website content above, return just the first name (e.g. "John"). If you are not confident, return "".
 
-Subject: [short subject line — reference their review count or star rating]
+2. "email_1" — ONE cold outreach email. Follow this structure exactly — only the subject line and opener change:
 
-Hey {first_name},
+Subject: [subject line — max 7 words, specific, NO "quick question" cliché]
+
+Hey [first name or remove greeting if unknown],
 
 [PERSONALISED OPENER — {opener_hint}]
 
@@ -193,14 +245,14 @@ Milan
 +447478075473
 
 Rules:
-- Subject line on its own line at the very top, before "Hey"
-- Use "{first_name}" — NEVER write "there"
-- The personalised opener is the ONLY part you write freely — everything after it is FIXED exactly as above
-- Opener: 1–2 sentences max, genuine not salesy
-- Total 80–110 words excluding subject line
-- NO fluff, NO "I hope this finds you well"
+- Subject line first, before the greeting
+- Use the contact's first name if known — NEVER write "there" or "Hi,"
+- Opener: 1–2 sentences, sharp and specific — NOT generic
+- Everything after the opener is FIXED word for word as above
+- Total 80–110 words excluding subject
+- NO "I hope", NO "just following up", NO fluff
 
-Return ONLY valid JSON. No markdown fences. No extra text."""
+Return ONLY valid JSON. No markdown. No extra text."""
 
 
 def generate_emails(company: str, contact: str, site_data: dict, town: str = "", stars: str = "", review_count: str = "") -> dict:
@@ -414,7 +466,9 @@ def process_record():
     contact      = strip_bullets(data.get("contact", "")) or "there"
     website      = strip_bullets(data.get("website", ""))
     phone        = strip_bullets(data.get("phone", ""))
-    town         = strip_bullets(data.get("town", "")).split("·")[0].strip()
+    town_raw     = strip_bullets(data.get("town", "")).split("·")[0].strip()
+    # Discard values that are business age ("5+ years in business") not a town name
+    town         = "" if re.search(r'\d+\+?\s*years', town_raw, re.IGNORECASE) else town_raw
     stars        = strip_bullets(data.get("stars", ""))
     review_count = strip_bullets(data.get("review_count", ""))
     email        = strip_bullets(data.get("email", ""))
@@ -443,9 +497,16 @@ def process_record():
 
     result = generate_emails(company, contact, site_data, town, stars, review_count)
 
+    # Use AI-extracted contact name if we didn't have one from the spreadsheet
+    final_contact = contact
+    if (not final_contact or final_contact == "there"):
+        ai_name = result.get("contact_name", "").strip()
+        if ai_name and len(ai_name.split()) <= 2 and ai_name.replace(" ", "").isalpha():
+            final_contact = ai_name
+
     return jsonify({
         "Company Name":  company,
-        "Contact Name":  contact,
+        "Contact Name":  final_contact,
         "Email":         email,
         "Website URL":   website,
         "Phone Number":  phone,
