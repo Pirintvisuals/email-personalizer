@@ -121,7 +121,7 @@ def fetch_website(url: str) -> dict:
     return result
 
 
-def build_prompt(company: str, contact: str, site_data: dict, town: str = "", reviews: str = "") -> str:
+def build_prompt(company: str, contact: str, site_data: dict, town: str = "", stars: str = "", review_count: str = "") -> str:
     if site_data["success"]:
         site_summary = f"""WEBSITE DATA:
 - Title: {site_data['title']}
@@ -134,13 +134,32 @@ def build_prompt(company: str, contact: str, site_data: dict, town: str = "", re
     else:
         site_summary = f"WEBSITE FETCH FAILED: {site_data['error']}"
 
-    town_line    = f"Town/Area: {town}" if town else ""
-    reviews_line = f"Reviews: {reviews}" if reviews else ""
-    extra = "\n".join(filter(None, [town_line, reviews_line]))
+    # Clean up review count — spreadsheet stores as negative e.g. -26 → 26
+    try:
+        review_count_clean = str(abs(int(float(review_count)))) if review_count else ""
+    except (ValueError, TypeError):
+        review_count_clean = review_count
+
+    stars_clean = stars.strip() if stars else ""
+
+    town_line   = f"Town/Area: {town}" if town else ""
+    stars_line  = f"Star Rating: {stars_clean}" if stars_clean else ""
+    review_line = f"Review Count: {review_count_clean}" if review_count_clean else ""
+    extra = "\n".join(filter(None, [town_line, stars_line, review_line]))
 
     first_name = contact.split()[0] if contact and contact.strip() else "there"
 
-    return f"""You are an expert B2B cold email copywriter for a lead-generation service that helps landscaping companies get more clients every month.
+    # Build the personalised opener instruction based on available data
+    if review_count_clean and stars_clean:
+        opener_hint = f'Reference their EXACT numbers: "{review_count_clean} reviews and a {stars_clean}-star rating — [Company] has clearly built a trusted name in {town or "the area"}. The question is whether the leads coming in are actually worth your time."'
+    elif stars_clean:
+        opener_hint = f'Reference their star rating: "[Company] has a {stars_clean}-star rating on Google — clearly doing great work in {town or "the area"}. The question is whether every lead coming in is actually worth your time."'
+    elif review_count_clean:
+        opener_hint = f'Reference their review count: "{review_count_clean} Google reviews — [Company] has clearly earned a solid reputation. The question is whether the enquiries coming in are actually worth your time."'
+    else:
+        opener_hint = 'Reference something specific from their website — their services, location, or something that shows you\'ve looked them up. End with a question like "The question is whether the leads coming in are actually worth your time."'
+
+    return f"""You are an expert B2B cold email copywriter for a lead-filtering service that helps landscaping companies stop wasting time on tyre-kickers and only speak to serious, quality leads.
 
 Company: {company}
 Contact: {contact}
@@ -153,45 +172,47 @@ YOUR TASK — produce a JSON object with exactly these keys:
 
 1. "research_notes" — 2-4 sentences: what you observed on their site (services, lead capture quality, obvious gaps). If site failed to load, note it and describe what a typical landscaper site looks like.
 
-2. "email_1" — initial cold outreach. MUST follow this EXACT structure (fill in the placeholders naturally):
+2. "email_1" — initial cold outreach. MUST follow this EXACT 5-part structure:
+
+Subject: [short, specific subject line — reference their review count or company name]
 
 Hey {first_name},
 
-[One sentence personalised opener referencing something specific — their star rating, reviews, work type, or something from their website. E.g. "Noticed [Company] has [X stars] on Google — solid reputation for landscaping in [town]." Keep it genuine, 1 sentence max.]
+[PERSONALISED OPENER — {opener_hint}]
 
-Just reaching out because we help landscapers in [{town if town else "your area"}] get an extra 3–5 new clients/jobs each month on a complete pay-on-results basis.
+Just reaching out because we help landscapers stop wasting time on tyre-kickers, so they only ever speak to homeowners who are serious about getting work done.
 
-We just helped [invent a realistic UK landscaping business name], a business down in [nearby UK town] get [specific result, e.g. "7 new garden design contracts worth £14,000 in 6 weeks"].
+We just started working with All Things Outside Ltd over in Ilfracombe — they were getting plenty of enquiries but most weren't going anywhere. We're already tracking them towards 300% better quality leads.
 
 Can I send a quick video explaining how it works?
 
 [Your Name]
 
    Rules:
-   - First line is "Subject: ..." (before the Hey line)
-   - Use "{first_name}" as the first name
-   - The personalised opener MUST reference their reviews/rating if provided, or something from their website
-   - Keep total length 80–120 words (excluding subject line)
-   - NO "I hope this email finds you well", NO fluff, NO hard sell
-   - The case study business and result must sound realistic and specific
+   - The subject line must be on its own line at the top, before "Hey"
+   - Use "{first_name}" as the first name — never "there"
+   - The personalised opener is the ONLY line you customise — the 3 paragraphs after it are FIXED as written above
+   - Keep the opener to 1–2 sentences max, make it feel genuine not salesy
+   - Total length 80–110 words (excluding subject line)
+   - NO "I hope this email finds you well", NO fluff
 
 3. "email_2" — follow-up, send day 3 (~80 words):
    - Subject line first
    - Reference local competition or seasonal demand in {town if town else "their area"}
-   - One pain point, one soft nudge
-   - End: "Can I send you the video?"
+   - One pain point about wasting time on bad leads, one soft nudge
+   - End: "Want me to send you the video?"
 
 4. "email_3" — follow-up, send day 8 (~80 words):
    - Subject line first
-   - Brief case study / success stat
+   - Brief stat or result about quality leads (e.g. time saved, conversion rate improvement)
    - Soft close mentioning {company} specifically
    - Final touch, no pressure
 
 Return ONLY valid JSON. No markdown fences. No extra text."""
 
 
-def generate_emails(company: str, contact: str, site_data: dict, town: str = "", reviews: str = "") -> dict:
-    prompt = build_prompt(company, contact, site_data, town, reviews)
+def generate_emails(company: str, contact: str, site_data: dict, town: str = "", stars: str = "", review_count: str = "") -> dict:
+    prompt = build_prompt(company, contact, site_data, town, stars, review_count)
     try:
         response = get_gemini_client().models.generate_content(
             model=GEMINI_MODEL,
@@ -340,8 +361,10 @@ def upload():
             guesses.setdefault("phone", i)
         elif any(k in hl for k in ["town", "city", "area", "location", "region", "address"]):
             guesses.setdefault("town", i)
-        elif any(k in hl for k in ["review", "rating", "star", "score"]):
-            guesses.setdefault("reviews", i)
+        elif any(k in hl for k in ["star"]) and "review" not in hl:
+            guesses.setdefault("stars", i)
+        elif any(k in hl for k in ["review", "rating", "score", "count"]):
+            guesses.setdefault("review_count", i)
 
     # Scan all collected column values to fill any gaps
     for i, vals in enumerate(col_samples):
@@ -364,10 +387,12 @@ def upload():
             guesses.setdefault("company", i)
         elif town_hits >= len(vals) // 2 and "town" not in guesses:
             guesses.setdefault("town", i)
-        elif num_hits >= len(vals) // 2 and "reviews" not in guesses:
+        elif num_hits >= len(vals) // 2:
             h = headers[i].lower() if i < len(headers) else ""
-            if any(k in h for k in ["review", "star", "rating", "score"]):
-                guesses.setdefault("reviews", i)
+            if any(k in h for k in ["star"]) and "review" not in h:
+                guesses.setdefault("stars", i)
+            elif any(k in h for k in ["review", "rating", "score", "count"]):
+                guesses.setdefault("review_count", i)
 
     # Return all data rows as plain arrays (frontend applies col mapping)
     data_rows = []
@@ -395,16 +420,17 @@ def process_record():
     def strip_bullets(v):
         return re.sub(r'^[\s·•\-–—]+', '', str(v or "")).strip()
 
-    data    = request.get_json()
-    company = strip_bullets(data.get("company", "")) or "Unknown Company"
-    contact = strip_bullets(data.get("contact", "")) or "there"
-    website = strip_bullets(data.get("website", ""))
-    phone   = strip_bullets(data.get("phone", ""))
-    town    = strip_bullets(data.get("town", "")).split("·")[0].strip()  # e.g. "Ilfracombe · 5+ years" → "Ilfracombe"
-    reviews = strip_bullets(data.get("reviews", ""))
+    data         = request.get_json()
+    company      = strip_bullets(data.get("company", "")) or "Unknown Company"
+    contact      = strip_bullets(data.get("contact", "")) or "there"
+    website      = strip_bullets(data.get("website", ""))
+    phone        = strip_bullets(data.get("phone", ""))
+    town         = strip_bullets(data.get("town", "")).split("·")[0].strip()
+    stars        = strip_bullets(data.get("stars", ""))
+    review_count = strip_bullets(data.get("review_count", ""))
 
     site_data = fetch_website(website)
-    result    = generate_emails(company, contact, site_data, town, reviews)
+    result    = generate_emails(company, contact, site_data, town, stars, review_count)
 
     return jsonify({
         "Company Name":   company,
@@ -412,7 +438,8 @@ def process_record():
         "Website URL":    website,
         "Phone Number":   phone,
         "Town":           town,
-        "Reviews":        reviews,
+        "Stars":          stars,
+        "Review Count":   review_count,
         "site_ok":        site_data["success"],
         "site_error":     site_data.get("error", ""),
         "research_notes": result.get("research_notes", ""),

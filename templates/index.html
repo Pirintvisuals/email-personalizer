@@ -206,9 +206,14 @@
       <div class="sample-val" id="sample-town"></div>
     </div>
     <div class="map-row">
-      <div class="map-label">⭐ Reviews</div>
-      <select id="map-reviews"></select>
-      <div class="sample-val" id="sample-reviews"></div>
+      <div class="map-label">⭐ Star Rating</div>
+      <select id="map-stars"></select>
+      <div class="sample-val" id="sample-stars"></div>
+    </div>
+    <div class="map-row">
+      <div class="map-label">💬 Review Count</div>
+      <select id="map-review_count"></select>
+      <div class="sample-val" id="sample-review_count"></div>
     </div>
 
     <button class="btn" id="start-btn">⚡ Generate Campaign</button>
@@ -299,7 +304,7 @@ function showMappingPanel(data) {
   document.getElementById('mapping-count').textContent =
     `✅ ${data.total} rows detected · ${data.headers.length} columns`;
 
-  ['company','contact','website','phone','town','reviews'].forEach(field => {
+  ['company','contact','website','phone','town','stars','review_count'].forEach(field => {
     const sel = document.getElementById('map-' + field);
     sel.innerHTML = '<option value="">— skip —</option>';
     data.headers.forEach((h, i) => {
@@ -323,12 +328,13 @@ function updateSample(field) {
 
 // ── Step 2: Generate (frontend-driven loop) ───────────────────────────────────
 document.getElementById('start-btn').addEventListener('click', async () => {
-  const companyIdx = document.getElementById('map-company').value;
-  const contactIdx = document.getElementById('map-contact').value;
-  const websiteIdx = document.getElementById('map-website').value;
-  const phoneIdx   = document.getElementById('map-phone').value;
-  const townIdx    = document.getElementById('map-town').value;
-  const reviewsIdx = document.getElementById('map-reviews').value;
+  const companyIdx      = document.getElementById('map-company').value;
+  const contactIdx      = document.getElementById('map-contact').value;
+  const websiteIdx      = document.getElementById('map-website').value;
+  const phoneIdx        = document.getElementById('map-phone').value;
+  const townIdx         = document.getElementById('map-town').value;
+  const starsIdx        = document.getElementById('map-stars').value;
+  const reviewCountIdx  = document.getElementById('map-review_count').value;
 
   if (companyIdx === '') { showError('Please map the Company Name column.'); return; }
   if (websiteIdx === '') { showError('Please map the Website URL column.'); return; }
@@ -339,12 +345,13 @@ document.getElementById('start-btn').addEventListener('click', async () => {
 
   // Build records from raw rows using chosen indices
   const records = allRows.map(row => ({
-    company: companyIdx !== '' ? (row[parseInt(companyIdx)] || '') : '',
-    contact: contactIdx !== '' ? (row[parseInt(contactIdx)] || '') : '',
-    website: websiteIdx !== '' ? (row[parseInt(websiteIdx)] || '') : '',
-    phone:   phoneIdx   !== '' ? (row[parseInt(phoneIdx)]   || '') : '',
-    town:    townIdx    !== '' ? (row[parseInt(townIdx)]    || '') : '',
-    reviews: reviewsIdx !== '' ? (row[parseInt(reviewsIdx)] || '') : '',
+    company:      companyIdx     !== '' ? (row[parseInt(companyIdx)]     || '') : '',
+    contact:      contactIdx     !== '' ? (row[parseInt(contactIdx)]     || '') : '',
+    website:      websiteIdx     !== '' ? (row[parseInt(websiteIdx)]     || '') : '',
+    phone:        phoneIdx       !== '' ? (row[parseInt(phoneIdx)]       || '') : '',
+    town:         townIdx        !== '' ? (row[parseInt(townIdx)]        || '') : '',
+    stars:        starsIdx       !== '' ? (row[parseInt(starsIdx)]       || '') : '',
+    review_count: reviewCountIdx !== '' ? (row[parseInt(reviewCountIdx)] || '') : '',
   }));
 
   const total = records.length;
