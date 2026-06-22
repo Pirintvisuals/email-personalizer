@@ -169,6 +169,7 @@
 <div style="display:flex;gap:10px;margin-bottom:24px;">
   <button onclick="showTab('manual')"   id="tab-manual"   style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#16a34a;color:#fff;border:none;">Manual</button>
   <button onclick="showTab('auto')"     id="tab-auto"     style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#1a1d27;color:#6b7a99;border:1px solid #2a2f42;">Auto Sender</button>
+  <button onclick="showTab('email')"    id="tab-email"    style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#1a1d27;color:#6b7a99;border:1px solid #2a2f42;">Owner Emails</button>
   <button onclick="showTab('followup')" id="tab-followup" style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#1a1d27;color:#6b7a99;border:1px solid #2a2f42;">Follow-Up</button>
 </div>
 
@@ -259,7 +260,7 @@
 
   <div class="card" style="margin-bottom:16px;">
     <label>Excel file path <span class="optional-tag">(leave blank to auto-detect)</span></label>
-    <input type="text" id="excel-path" placeholder="C:\Users\you\leads.xlsx" value="{{ default_excel or 'C:\\Users\\pirin\\OneDrive\\Asztali gép\\UK_Trades_Leads_40 (1).xlsx' }}"/>
+    <input type="text" id="excel-path" placeholder="C:\Users\you\leads.xlsx" value="{{ default_excel or 'C:\\Users\\pirin\\OneDrive\\Asztali gép\\uk trades new leads.xlsx' }}"/>
     <button onclick="loadExcel()" class="gen-btn" style="background:linear-gradient(135deg,#1e3a5f,#0891b2);margin-top:12px;">Load Leads</button>
     <div id="auto-load-status" style="margin-top:10px;font-size:0.85rem;color:#6b7a99;"></div>
   </div>
@@ -291,14 +292,7 @@
     </button>
 
     <div id="auto-dm-section" style="display:none;margin-top:20px;">
-      <div class="output-label" id="auto-out-label" style="color:#4ade80;">Generated DM</div>
-      <div id="auto-email-meta" style="display:none;margin:6px 0 8px;">
-        <div style="font-size:0.8rem;color:#6b7a99;">To: <span id="auto-email-to" style="color:#4ade80;word-break:break-all;"></span></div>
-        <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
-          <div style="flex:1;font-size:0.9rem;color:#e8eaf0;">Subject: <span id="auto-email-subject" style="font-weight:700;"></span></div>
-          <button onclick="copyEmailSubject()" id="auto-subj-btn" class="copy-btn" style="background:#1a2332;border:1px solid #2563eb;color:#60a5fa;padding:6px 12px;font-size:0.78rem;white-space:nowrap;">Copy subject</button>
-        </div>
-      </div>
+      <div class="output-label" style="color:#4ade80;">Generated DM</div>
       <div id="auto-dm-box" class="result-box" style="margin-top:8px;"></div>
       <div id="auto-typed-note" style="margin-top:8px;font-size:0.82rem;color:#fbbf24;"></div>
       <div style="display:flex;gap:10px;margin-top:12px;">
@@ -311,6 +305,59 @@
 
     <div id="auto-error" style="display:none;margin-top:12px;padding:10px 14px;background:#2d1515;border:1px solid #7f1d1d;border-radius:8px;color:#fca5a5;font-size:0.85rem;"></div>
 
+  </div>
+</div>
+
+<!-- ── Owner Emails Tab ──────────────────────────────────────── -->
+<div id="section-email" style="display:none;width:100%;max-width:560px;">
+  <div class="card" style="margin-bottom:16px;">
+    <label>Excel file path <span class="optional-tag">(leave blank to auto-detect)</span></label>
+    <input type="text" id="email-path" placeholder="C:\Users\you\leads.xlsx" value="{{ default_excel or 'C:\\Users\\pirin\\OneDrive\\Asztali gép\\UK_Trades_Leads_40 (1).xlsx' }}"/>
+    <button onclick="loadEmailExcel()" class="gen-btn" style="background:linear-gradient(135deg,#1e3a5f,#0891b2);margin-top:12px;">Load Email Leads</button>
+    <div id="email-load-status" style="margin-top:10px;font-size:0.85rem;color:#6b7a99;"></div>
+  </div>
+
+  <div class="card" id="email-main" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+      <div style="min-width:0;">
+        <div style="font-size:0.72rem;color:#6b7a99;text-transform:uppercase;letter-spacing:0.05em;">Current lead</div>
+        <div id="email-company" style="font-size:1.1rem;font-weight:700;color:#e8eaf0;margin-top:3px;"></div>
+        <div id="email-to" style="font-size:0.8rem;color:#4ade80;margin-top:2px;word-break:break-all;"></div>
+      </div>
+      <div style="text-align:right;white-space:nowrap;">
+        <div id="email-sent-today" style="font-size:1.4rem;font-weight:700;color:#22d3ee;">0</div>
+        <div id="email-progress" style="font-size:0.75rem;color:#6b7a99;"></div>
+      </div>
+    </div>
+
+    <div style="font-size:0.82rem;color:#6b7a99;margin-top:14px;line-height:1.5;">
+      Click below → app opens their Facebook page, writes the email &amp; <strong style="color:#4ade80;">copies the body to your clipboard</strong>. Then paste into Gmail.
+    </div>
+
+    <button onclick="nextEmailLead()" id="email-next-btn" class="gen-btn" style="background:linear-gradient(135deg,#16a34a,#0891b2);margin-top:14px;">
+      ▶ Scan Page &amp; Write Email
+    </button>
+    <button onclick="skipEmailLead()" id="email-skip-btn" class="gen-btn" style="background:#1a1d27;border:1px solid #4b5563;color:#9ca3af;margin-top:8px;font-size:0.85rem;padding:10px;">
+      ⟶ Skip this lead
+    </button>
+
+    <div id="email-out-section" style="display:none;margin-top:20px;">
+      <div class="output-label" style="color:#4ade80;">Generated Email</div>
+      <div style="display:flex;gap:8px;align-items:center;margin:8px 0;">
+        <div style="flex:1;font-size:0.9rem;color:#e8eaf0;">Subject: <span id="email-subject" style="font-weight:700;"></span></div>
+        <button onclick="copyEmailSubject()" id="email-subj-btn" class="copy-btn" style="background:#1a2332;border:1px solid #2563eb;color:#60a5fa;padding:6px 12px;font-size:0.78rem;white-space:nowrap;">Copy subject</button>
+      </div>
+      <div id="email-body-box" class="result-box" style="margin-top:8px;"></div>
+      <div id="email-note" style="margin-top:8px;font-size:0.82rem;color:#fbbf24;"></div>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button onclick="copyEmailBody()" id="email-copy-btn" class="copy-btn" style="background:#1e3a2a;border:1px solid #22c55e;color:#4ade80;flex:1;">Copy Email</button>
+        <button onclick="markEmailSent()" id="email-mark-btn" class="gen-btn" style="background:linear-gradient(135deg,#7c3aed,#2563eb);margin-top:0;flex:1;padding:12px;">
+          ✓ Sent — Load Next
+        </button>
+      </div>
+    </div>
+
+    <div id="email-error" style="display:none;margin-top:12px;padding:10px 14px;background:#2d1515;border:1px solid #7f1d1d;border-radius:8px;color:#fca5a5;font-size:0.85rem;"></div>
   </div>
 </div>
 
@@ -571,7 +618,7 @@
 
   // ── Tab switching ────────────────────────────────────────────
   function showTab(tab) {
-    ['manual','auto','followup'].forEach(t => {
+    ['manual','auto','email','followup'].forEach(t => {
       const sec = document.getElementById('section-' + t);
       const btn = document.getElementById('tab-' + t);
       if (!sec || !btn) return;
@@ -766,31 +813,13 @@
         document.getElementById('auto-url').textContent = d.lead.url;
         document.getElementById('auto-dm-box').textContent = d.dm;
         document.getElementById('auto-sent-today').textContent = d.sent_today;
-        const isEmail = d.channel === 'email';
-        const meta    = document.getElementById('auto-email-meta');
-        const label   = document.getElementById('auto-out-label');
-        const copyBtn = document.getElementById('auto-copy-btn');
         let note = '';
-        if (isEmail) {
-          label.textContent = 'Generated Email';
-          document.getElementById('auto-email-to').textContent = d.email || '(no address)';
-          document.getElementById('auto-email-subject').textContent = d.subject || '';
-          meta.style.display = 'block';
-          copyBtn.textContent = 'Copy Email';
-          note = d.clipboard
-            ? '✓ Email body copied. Copy the subject above, open Gmail, paste both, then send.'
-            : 'Copy the email body above and the subject, then paste into Gmail.';
+        if (d.clipboard && d.msg_opened) {
+          note = '✓ Copied to clipboard. Chat opened — click the message box and Ctrl+V, then Enter.';
+        } else if (d.clipboard) {
+          note = '✓ Copied to clipboard. Open the chat, click the message box, Ctrl+V, then Enter.';
         } else {
-          label.textContent = 'Generated DM';
-          meta.style.display = 'none';
-          copyBtn.textContent = 'Copy DM';
-          if (d.clipboard && d.msg_opened) {
-            note = '✓ Copied to clipboard. Chat opened — click the message box and Ctrl+V, then Enter.';
-          } else if (d.clipboard) {
-            note = '✓ Copied to clipboard. Open the chat, click the message box, Ctrl+V, then Enter.';
-          } else {
-            note = 'Copy the DM above and paste it into the message box manually.';
-          }
+          note = 'Copy the DM above and paste it into the message box manually.';
         }
         document.getElementById('auto-typed-note').textContent = note;
         document.getElementById('auto-dm-section').style.display = 'block';
@@ -857,24 +886,137 @@
     }
   }
 
-  function copyAutoDM() {
-    const text = document.getElementById('auto-dm-box').textContent;
-    const isEmail = currentLead && currentLead.channel === 'email';
+  // ── Owner Emails section (separate from Auto Sender) ─────────────────────
+  let currentEmailLead = null;
+
+  async function loadEmailExcel() {
+    const path = document.getElementById('email-path').value.trim();
+    const status = document.getElementById('email-load-status');
+    status.style.color = '#6b7a99'; status.textContent = 'Loading...';
+    try {
+      const r = await fetch('/email_load', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ path })
+      });
+      const d = await r.json();
+      if (d.error) { status.style.color = '#fca5a5'; status.textContent = d.error; return; }
+      status.style.color = '#4ade80';
+      status.textContent = `Loaded. ${d.sent} sent, ${d.total - d.sent} remaining.`;
+      currentEmailLead = d.lead;
+      document.getElementById('email-company').textContent = d.lead.name || d.lead.email;
+      document.getElementById('email-to').textContent = d.lead.email;
+      document.getElementById('email-progress').textContent = `${d.sent} / ${d.total} done`;
+      document.getElementById('email-main').style.display = 'block';
+      document.getElementById('email-out-section').style.display = 'none';
+    } catch(e) {
+      status.style.color = '#fca5a5'; status.textContent = 'Error: ' + e.message;
+    }
+  }
+
+  async function nextEmailLead() {
+    const nextBtn = document.getElementById('email-next-btn');
+    const markBtn = document.getElementById('email-mark-btn');
+    const errEl   = document.getElementById('email-error');
+    nextBtn.disabled = true; markBtn.disabled = true;
+    errEl.style.display = 'none';
+    document.getElementById('email-out-section').style.display = 'none';
+
+    const loadingMsgs = ['Opening page...','Loading page (can take 30-60s)...','Reading the page...','Writing the email...','Almost done...'];
+    let i = 0; nextBtn.textContent = loadingMsgs[0];
+    const timer = setInterval(() => { i = Math.min(i+1, loadingMsgs.length-1); nextBtn.textContent = loadingMsgs[i]; }, 12000);
+    const controller = new AbortController();
+    const hardTimeout = setTimeout(() => controller.abort(), 120000);
+    try {
+      const r = await fetch('/email_next', { method: 'POST', signal: controller.signal });
+      const d = await r.json();
+      if (d.error) { errEl.textContent = d.error; errEl.style.display = 'block'; }
+      else {
+        currentEmailLead = d.lead;
+        document.getElementById('email-company').textContent = d.lead.name || d.lead.email;
+        document.getElementById('email-to').textContent = d.email || d.lead.email;
+        document.getElementById('email-subject').textContent = d.subject || '';
+        document.getElementById('email-body-box').textContent = d.body;
+        document.getElementById('email-sent-today').textContent = d.sent_today;
+        document.getElementById('email-note').textContent = d.clipboard
+          ? '✓ Email body copied. Copy the subject above, open Gmail, paste both, then send.'
+          : 'Copy the body and subject above, then paste into Gmail.';
+        document.getElementById('email-out-section').style.display = 'block';
+      }
+    } catch(e) {
+      errEl.textContent = e.name === 'AbortError' ? 'Timed out — Chrome may be slow. Try again.' : 'Error: ' + e.message;
+      errEl.style.display = 'block';
+    } finally { clearInterval(timer); clearTimeout(hardTimeout); }
+    nextBtn.disabled = false; nextBtn.textContent = '▶ Scan Page & Write Email';
+    markBtn.disabled = false; markBtn.textContent = '✓ Sent — Load Next';
+  }
+
+  async function skipEmailLead() {
+    const skipBtn = document.getElementById('email-skip-btn');
+    const errEl   = document.getElementById('email-error');
+    skipBtn.disabled = true; skipBtn.textContent = 'Skipping...';
+    errEl.style.display = 'none';
+    try {
+      const r = await fetch('/email_skip', { method: 'POST' });
+      const d = await r.json();
+      if (d.error) { errEl.textContent = d.error; errEl.style.display = 'block'; }
+      else {
+        currentEmailLead = d.lead;
+        document.getElementById('email-company').textContent = d.lead.name || d.lead.email;
+        document.getElementById('email-to').textContent = d.lead.email;
+        document.getElementById('email-progress').textContent = `${d.sent} / ${d.total} done`;
+        document.getElementById('email-out-section').style.display = 'none';
+      }
+    } catch(e) { errEl.textContent = 'Error: ' + e.message; errEl.style.display = 'block'; }
+    skipBtn.disabled = false; skipBtn.textContent = '⟶ Skip this lead';
+  }
+
+  async function markEmailSent() {
+    const btn = document.getElementById('email-mark-btn');
+    const errEl = document.getElementById('email-error');
+    errEl.style.display = 'none';
+    btn.disabled = true; btn.textContent = 'Marking sent...';
+    try {
+      const r = await fetch('/email_mark_sent', { method: 'POST' });
+      const d = await r.json();
+      if (d.ok) {
+        document.getElementById('email-sent-today').textContent = d.sent_today;
+        document.getElementById('email-progress').textContent = `${d.sent} / ${d.total} done`;
+        await nextEmailLead();
+      } else {
+        errEl.textContent = d.error || 'Could not mark as sent — try again.';
+        errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = '✓ Sent — Load Next';
+      }
+    } catch(e) {
+      errEl.textContent = 'Error: ' + e.message; errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = '✓ Sent — Load Next';
+    }
+  }
+
+  function copyEmailBody() {
+    const text = document.getElementById('email-body-box').textContent;
     navigator.clipboard.writeText(text).then(() => {
-      const btn = document.getElementById('auto-copy-btn');
-      const label = isEmail ? 'Copy Email' : 'Copy DM';
+      const btn = document.getElementById('email-copy-btn');
       btn.textContent = 'Copied!'; btn.style.background = '#16a34a'; btn.style.color = '#fff';
-      setTimeout(() => { btn.textContent = label; btn.style.background = '#1e3a2a'; btn.style.color = '#4ade80'; }, 2000);
+      setTimeout(() => { btn.textContent = 'Copy Email'; btn.style.background = '#1e3a2a'; btn.style.color = '#4ade80'; }, 2000);
     });
   }
 
   function copyEmailSubject() {
-    const text = document.getElementById('auto-email-subject').textContent;
+    const text = document.getElementById('email-subject').textContent;
     navigator.clipboard.writeText(text).then(() => {
-      const btn = document.getElementById('auto-subj-btn');
-      const prev = btn.textContent;
-      btn.textContent = 'Copied!';
+      const btn = document.getElementById('email-subj-btn');
+      const prev = btn.textContent; btn.textContent = 'Copied!';
       setTimeout(() => { btn.textContent = prev; }, 1500);
+    });
+  }
+
+  function copyAutoDM() {
+    const text = document.getElementById('auto-dm-box').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('auto-copy-btn');
+      btn.textContent = 'Copied!'; btn.style.background = '#16a34a'; btn.style.color = '#fff';
+      setTimeout(() => { btn.textContent = 'Copy DM'; btn.style.background = '#1e3a2a'; btn.style.color = '#4ade80'; }, 2000);
     });
   }
 

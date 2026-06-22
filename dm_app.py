@@ -1685,6 +1685,17 @@ _auto_state = {
     "cols":          {},
 }
 
+# Separate state for the Owner Emails section so it never interferes with the
+# Auto Sender (DM) flow — you can load a different list in each.
+_email_state = {
+    "excel_path":    None,
+    "current_row":   None,
+    "sent_today":    0,
+    "wb":            None,
+    "ws":            None,
+    "cols":          {},
+}
+
 DAILY_CAP = 30
 
 def _load_excel(path: str):
@@ -1787,7 +1798,32 @@ def _to_int(v):
         return 0
 
 def _next_lead(ws, cols, skip_row=None):
-    SKIP_STATES = ("yes", "y", "sent", "1", "true", "skip")
+    """Next uncontacted DM lead (Auto Sender). DM-only, unchanged: walks rows
+    whose URL column is a real link. Email leads are handled by the separate
+    Owner Emails section via _next_email_lead()."""
+    for row in ws.iter_rows(min_row=2):
+        excel_row = row[0].row
+        if skip_row is not None and excel_row == skip_row:
+            continue
+        url = str(row[cols["url"]].value or "").strip()
+        contacted = str(row[cols["contacted"]].value or "").strip().lower() if cols["contacted"] is not None else ""
+        if not url.startswith("http"):
+            continue  # skip blank or invalid URL rows silently
+        if contacted not in ("yes", "y", "sent", "1", "true", "skip"):
+            return {
+                "row":   excel_row,
+                "url":   url,
+                "name":  str(row[cols["name"]].value or "").strip(),
+                "city":  str(row[cols["city"]].value or "").strip()  if cols["city"]  is not None else "",
+                "niche": str(row[cols["niche"]].value or "").strip() if cols["niche"] is not None else "",
+            }
+    return None
+
+
+def _next_email_lead(ws, cols, skip_row=None):
+    """Next uncontacted EMAIL lead (Owner Emails section). Only rows whose
+    contact is an email address (or Contact Type says Email). Returns the email
+    address plus the Company Facebook page to scan for a personal line."""
     for row in ws.iter_rows(min_row=2):
         excel_row = row[0].row
         if skip_row is not None and excel_row == skip_row:
@@ -1797,41 +1833,23 @@ def _next_lead(ws, cols, skip_row=None):
             i = cols.get(key)
             return str(row[i].value or "").strip() if i is not None else ""
 
-        if _v("contacted").lower() in SKIP_STATES:
+        if _v("contacted").lower() in ("yes", "y", "sent", "1", "true", "skip"):
             continue
 
-        owner        = _v("name")
-        city         = _v("city")
-        niche        = _v("niche")
-        company_fb   = _v("company_fb")
-        contact_type = _v("contact_type").lower()
-        # Back-compat: older lists have only a FB/url column, no dedicated
-        # "Contact" column — fall back to it so those sheets still work.
-        contact_val  = _v("contact") or _v("url")
+        contact = _v("contact") or _v("url")
+        ctype   = _v("contact_type").lower()
+        if not (("@" in contact) or ("email" in ctype)):
+            continue  # not an email lead — leave it for the DM flow
 
-        # An email contact → write an owner email (scan the Company FB page for a
-        # personal line if there is one). Anything else → the Facebook DM flow.
-        if ("@" in contact_val) or ("email" in contact_type):
-            channel    = "email"
-            email_addr = contact_val
-            scan_url   = company_fb if company_fb.startswith("http") else ""
-            if not email_addr:
-                continue  # email lead with no address — nothing to send
-        else:
-            channel    = "dm"
-            email_addr = ""
-            scan_url   = contact_val if contact_val.startswith("http") else company_fb
-            if not scan_url.startswith("http"):
-                continue  # no usable profile/page URL
-
+        company_fb = _v("company_fb")
+        scan_url   = company_fb if company_fb.startswith("http") else ""
         return {
-            "row":     excel_row,
-            "url":     scan_url,   # page to open & scan ("" for an email lead with no FB page)
-            "name":    owner,
-            "city":    city,
-            "niche":   niche,
-            "channel": channel,
-            "email":   email_addr,
+            "row":   excel_row,
+            "email": contact,
+            "url":   scan_url,   # Company FB page to scan ("" if none)
+            "name":  _v("name"),
+            "city":  _v("city"),
+            "niche": _v("niche"),
         }
     return None
 
@@ -1939,26 +1957,8 @@ def auto_next():
             return jsonify({"error": "No more leads — all done!"}), 200
 
         _auto_state["current_row"] = lead["row"]
-        channel = lead.get("channel", "dm")
-        subject = None
 
-        # Email lead with no Facebook page to scan → write the email straight from
-        # the spreadsheet data (trade, owner, location). No Chrome needed.
-        if channel == "email" and not (lead.get("url") or "").startswith("http"):
-            subject, body = _build_email("", "", lead)
-            clipboard = copy_to_clipboard(body)
-            return jsonify({
-                "channel":    "email",
-                "subject":    subject,
-                "email":      lead.get("email", ""),
-                "dm":         body,
-                "lead":       lead,
-                "clipboard":  clipboard,
-                "msg_opened": False,
-                "sent_today": _auto_state["sent_today"],
-            })
-
-        # Open profile / page in Chrome
+        # Open profile in Chrome
         from playwright.sync_api import sync_playwright
         import socket
         connected = False
@@ -2069,34 +2069,7 @@ def auto_next():
             # validated against FIRST_NAMES. No name found → plain "Hi." (no guess).
             name_hint = extract_first_name(text or "", lead.get("name", ""))
 
-            if channel == "email":
-                # Owner email: a personalised opener from their page (full variant
-                # only), then the email assembled and copied to the clipboard. No
-                # Messenger — the user pastes it into Gmail.
-                opener = ""
-                if MESSAGE_VARIANT == "full":
-                    try:
-                        import time as _tw
-                        page.evaluate("window.scrollTo(0, 850)")
-                        _tw.sleep(1.4)
-                        shot = page.screenshot(type="jpeg", quality=72)
-                        page.evaluate("window.scrollTo(0, 0)")
-                        raw = call_gemini(text_data=text_data, images=[(shot, "image/jpeg")])
-                        opener = patch_fallback_opener(raw.rstrip(".!,") + ".", text_data, lead.get("city", ""))
-                    except Exception as _se:
-                        print(f"  Email opener skipped: {_se}")
-                # The page <h1> holds the business/page name and is language-
-                # independent (document.title is just "Facebook" on a logged-in
-                # session, and og:title is empty). Fall back to those if needed.
-                try:
-                    page_title = page.evaluate(
-                        "() => { const h = document.querySelector('h1');"
-                        " const o = document.querySelector('meta[property=\"og:title\"]');"
-                        " return (h && h.innerText) || (o && o.content) || document.title || ''; }")
-                except Exception:
-                    page_title = ""
-                subject, dm = _build_email(opener, text, lead, page_title)
-            elif MESSAGE_VARIANT == "stripped":
+            if MESSAGE_VARIANT == "stripped":
                 # Direct one-line variant — no opener, so skip the screenshot AND
                 # the vision call entirely (faster, and the photo isn't used).
                 dm = tidy_message(pick_stripped_message(
@@ -2129,24 +2102,17 @@ def auto_next():
                 body   = pick_body(trade, text_data, lead.get("city", ""), lead.get("name", "") or extract_company_name(text_data))
                 dm     = tidy_message((opener + " " + body).strip())
 
-            # Copy the message to clipboard — always reliable
+            # Copy DM to clipboard — always reliable
             clipboard = copy_to_clipboard(dm)
 
-            if channel == "email":
-                # Email lead: nothing to open in Messenger.
-                msg_opened = False
+            # Click Message button to open the chat — user just Ctrl+V to paste
+            msg_opened = _click_message_btn(page)
+            if msg_opened:
+                print("  Message chat opened. User can Ctrl+V to paste.")
             else:
-                # DM lead: click Message to open the chat — user just Ctrl+V.
-                msg_opened = _click_message_btn(page)
-                if msg_opened:
-                    print("  Message chat opened. User can Ctrl+V to paste.")
-                else:
-                    print("  Could not click Message button — user can open chat manually.")
+                print("  Could not click Message button — user can open chat manually.")
 
         return jsonify({
-            "channel":    channel,
-            "subject":    subject if channel == "email" else None,
-            "email":      lead.get("email", "") if channel == "email" else None,
             "dm":         dm,
             "lead":       lead,
             "clipboard":  clipboard,
@@ -2220,6 +2186,223 @@ def auto_mark_sent():
         total = sum(1 for r in ws.iter_rows(min_row=2) if str(r[cols["url"]].value or "").strip())
 
         return jsonify({"ok": True, "sent_today": _auto_state["sent_today"], "sent": sent, "total": total})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ── Owner Emails section ──────────────────────────────────────────────────────
+# A separate, self-contained flow for leads whose contact is an email address.
+# It scans the lead's Company Facebook page for a personal line, writes one short
+# owner email, and copies it to the clipboard. It uses its own _email_state so it
+# never disturbs the Auto Sender (DM) flow.
+
+def _save_email_wb():
+    """Save the Owner-Emails workbook, retrying briefly if the file is locked."""
+    import time as _t
+    wb   = _email_state.get("wb")
+    path = _email_state.get("excel_path")
+    if wb is None or not path:
+        return
+    for _ in range(6):
+        try:
+            wb.save(path); return
+        except PermissionError:
+            _t.sleep(0.4)
+    raise PermissionError(
+        "Can't write to the Excel file — it's open in Excel (or still syncing in "
+        "OneDrive). Close the spreadsheet, wait for OneDrive, then click again.")
+
+
+def _email_counts(ws, cols):
+    total = sum(
+        1 for r in ws.iter_rows(min_row=2)
+        if (cols.get("contact") is not None and "@" in str(r[cols["contact"]].value or ""))
+        or (cols.get("contact_type") is not None and "email" in str(r[cols["contact_type"]].value or "").lower()))
+    sent = sum(
+        1 for r in ws.iter_rows(min_row=2)
+        if cols["contacted"] is not None and
+        str(r[cols["contacted"]].value or "").strip().lower() in ("yes", "y", "sent", "1", "true"))
+    return total, sent
+
+
+@app.route("/email_load", methods=["POST"])
+def email_load():
+    """Load Excel for the Owner Emails section; return the first email lead."""
+    try:
+        data = request.get_json() or {}
+        path = (data.get("path") or "").strip()
+        if not path:
+            for f in _Path(__file__).parent.glob("*.xlsx"):
+                if any(k in f.name.lower() for k in ("lead", "email", "contact", "prospect", "outreach")):
+                    path = str(f); break
+        if not path or not _Path(path).exists():
+            return jsonify({"error": f"Excel file not found: {path}"}), 400
+        wb, ws, cols = _load_excel(path)
+        _email_state.update({"excel_path": path, "wb": wb, "ws": ws, "cols": cols, "current_row": None})
+        lead = _next_email_lead(ws, cols)
+        if not lead:
+            return jsonify({"error": "No email leads found in this file."}), 200
+        total, sent = _email_counts(ws, cols)
+        return jsonify({"lead": lead, "total": total, "sent": sent})
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/email_next", methods=["POST"])
+def email_next():
+    """Scan the next email lead's Company FB page and write the owner email."""
+    try:
+        ws   = _email_state["ws"]
+        cols = _email_state["cols"]
+        if ws is None:
+            return jsonify({"error": "Load your Excel file first."}), 400
+
+        prev_row = _email_state["current_row"]
+        if prev_row is not None and cols["contacted"] is not None:
+            ws.cell(row=prev_row, column=cols["contacted"] + 1, value="Skip")
+            _save_email_wb()
+
+        lead = _next_email_lead(ws, cols, skip_row=prev_row)
+        if not lead:
+            return jsonify({"error": "No more email leads — all done!"}), 200
+        _email_state["current_row"] = lead["row"]
+
+        scan_url = (lead.get("url") or "").strip()
+
+        # No Company FB page → write from spreadsheet data only, no Chrome.
+        if not scan_url.startswith("http"):
+            subject, body = _build_email("", "", lead)
+            clipboard = copy_to_clipboard(body)
+            return jsonify({"subject": subject, "email": lead.get("email", ""),
+                            "body": body, "lead": lead, "clipboard": clipboard,
+                            "sent_today": _email_state["sent_today"]})
+
+        from playwright.sync_api import sync_playwright
+        import socket
+        connected = False
+        for _ in range(5):
+            try:
+                s = socket.create_connection(("127.0.0.1", CDP_PORT), timeout=2); s.close()
+                connected = True; break
+            except:
+                import time as _t2; _t2.sleep(1)
+        if not connected:
+            return jsonify({"error": "Chrome not found. Double-click START UK.bat, wait for Chrome to open, then try again."}), 500
+
+        with sync_playwright() as p:
+            browser = p.chromium.connect_over_cdp(f"http://localhost:{CDP_PORT}")
+            ctx     = browser.contexts[0]
+            for _pg in list(ctx.pages):
+                _u = _pg.url.lower()
+                if ("facebook.com/" in _u and "messenger.com" not in _u and
+                        "/messages" not in _u and "localhost" not in _u):
+                    try: _pg.close()
+                    except Exception: pass
+            page = ctx.new_page()
+            try:
+                page.goto(scan_url, wait_until="domcontentloaded", timeout=45000)
+            except Exception:
+                try:
+                    page.goto(scan_url, wait_until="commit", timeout=30000)
+                except Exception as e:
+                    return jsonify({"error": f"Could not load page: {e}"}), 500
+            page.wait_for_timeout(1000)
+            try: page.keyboard.press("Escape")
+            except Exception: pass
+            try:
+                page.evaluate(r"""() => {
+                    if (!document.getElementById('dm-overlay-killer')) {
+                        const st = document.createElement('style'); st.id = 'dm-overlay-killer';
+                        st.textContent = '[role="dialog"]{display:none!important;}html,body{overflow:auto!important;}';
+                        (document.head || document.documentElement).appendChild(st);
+                    }
+                    const nuke = () => document.querySelectorAll('[role="dialog"]').forEach(el => el.remove());
+                    nuke(); const obs = new MutationObserver(nuke);
+                    obs.observe(document.documentElement, { childList: true, subtree: true });
+                    setTimeout(() => obs.disconnect(), 6000);
+                }""")
+            except Exception: pass
+            try:
+                text = page.evaluate("""() => {
+                    ['script','style','noscript','svg','iframe'].forEach(t => document.querySelectorAll(t).forEach(el => el.remove()));
+                    return document.body ? document.body.innerText : '';
+                }""")
+                import re as _re
+                text = _re.sub(r"\n{3,}", "\n\n", text).strip()[:12000]
+            except:
+                text = ""
+
+            text_data = text
+            if lead["niche"]: text_data = f"--- TRADE TYPE ---\n{lead['niche']}\n\n" + text_data
+            if lead["city"]:  text_data += f"\n\n--- LISTED CITY ---\n{lead['city']}"
+
+            opener = ""
+            try:
+                import time as _tw
+                page.evaluate("window.scrollTo(0, 850)")
+                _tw.sleep(1.4)
+                shot = page.screenshot(type="jpeg", quality=72)
+                page.evaluate("window.scrollTo(0, 0)")
+                raw = call_gemini(text_data=text_data, images=[(shot, "image/jpeg")])
+                opener = patch_fallback_opener(raw.rstrip(".!,") + ".", text_data, lead.get("city", ""))
+            except Exception as _se:
+                print(f"  Email opener skipped: {_se}")
+
+            try:
+                page_title = page.evaluate(
+                    "() => { const h = document.querySelector('h1');"
+                    " const o = document.querySelector('meta[property=\"og:title\"]');"
+                    " return (h && h.innerText) || (o && o.content) || document.title || ''; }")
+            except Exception:
+                page_title = ""
+
+            subject, body = _build_email(opener, text, lead, page_title)
+            clipboard = copy_to_clipboard(body)
+
+        return jsonify({"subject": subject, "email": lead.get("email", ""),
+                        "body": body, "lead": lead, "clipboard": clipboard,
+                        "sent_today": _email_state["sent_today"]})
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/email_skip", methods=["POST"])
+def email_skip():
+    """Skip the current email lead and return the next one (no Chrome)."""
+    try:
+        ws = _email_state["ws"]; cols = _email_state["cols"]; row = _email_state["current_row"]
+        if ws is None:
+            return jsonify({"error": "No Excel loaded."}), 400
+        if row is not None and cols["contacted"] is not None:
+            ws.cell(row=row, column=cols["contacted"] + 1, value="Skip"); _save_email_wb()
+        _email_state["current_row"] = None
+        lead = _next_email_lead(ws, cols)
+        if not lead:
+            return jsonify({"error": "No more email leads — all done!"}), 200
+        _email_state["current_row"] = lead["row"]
+        total, sent = _email_counts(ws, cols)
+        return jsonify({"ok": True, "lead": lead, "sent": sent, "total": total})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/email_mark_sent", methods=["POST"])
+def email_mark_sent():
+    """Mark the current email lead as sent."""
+    try:
+        ws = _email_state["ws"]; cols = _email_state["cols"]; row = _email_state["current_row"]
+        if ws is None or row is None:
+            return jsonify({"ok": False, "error": "Nothing to mark."}), 400
+        if cols["contacted"] is not None:
+            ws.cell(row=row, column=cols["contacted"] + 1, value="Yes")
+        if cols.get("sent_date") is not None:
+            ws.cell(row=row, column=cols["sent_date"] + 1, value=_today_str())
+        _save_email_wb()
+        _email_state["sent_today"] += 1; _email_state["current_row"] = None
+        total, sent = _email_counts(ws, cols)
+        return jsonify({"ok": True, "sent_today": _email_state["sent_today"], "sent": sent, "total": total})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
