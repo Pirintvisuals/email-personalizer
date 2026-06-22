@@ -1185,6 +1185,13 @@ def _build_email(opener: str, page_text: str, lead: dict, page_title: str = "") 
     return _email_subject(company, niche, first), tidy_message(body)
 
 
+def _email_clipboard(to: str, subject: str, body: str) -> str:
+    """Full email on the clipboard with NO field labels — just the address, then
+    the subject, then the body. So one paste gives: address line, subject line,
+    blank line, body (not 'To:'/'Subject:' prefixes)."""
+    return f"{to}\n{subject}\n\n{body}"
+
+
 def pick_stripped_message(text_data: str, name_hint: str = "", company_name: str = "") -> str:
     """Direct, honest A/B variant — no personalised opener, no vision call.
     'Hi [name], I'm a student building AI quote bots for [trade] and I've put a
@@ -2327,7 +2334,7 @@ def email_next():
         # No Company FB page → write from spreadsheet data only, no Chrome.
         if not scan_url.startswith("http"):
             subject, body = _build_email("", "", lead)
-            clipboard = copy_to_clipboard(body)
+            clipboard = copy_to_clipboard(_email_clipboard(lead.get("email", ""), subject, body))
             return jsonify({"subject": subject, "email": lead.get("email", ""),
                             "body": body, "lead": lead, "clipboard": clipboard,
                             "sent_today": _email_state["sent_today"]})
@@ -2412,7 +2419,7 @@ def email_next():
                 page_title = ""
 
             subject, body = _build_email(opener, text, lead, page_title)
-            clipboard = copy_to_clipboard(body)
+            clipboard = copy_to_clipboard(_email_clipboard(lead.get("email", ""), subject, body))
 
         return jsonify({"subject": subject, "email": lead.get("email", ""),
                         "body": body, "lead": lead, "clipboard": clipboard,

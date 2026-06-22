@@ -353,7 +353,7 @@
         ✉ Open in Gmail (everything filled in)
       </button>
       <div style="display:flex;gap:10px;margin-top:8px;">
-        <button onclick="copyEmailBody()" id="email-copy-btn" class="copy-btn" style="background:#1e3a2a;border:1px solid #22c55e;color:#4ade80;flex:1;">Copy body</button>
+        <button onclick="copyEmailBody()" id="email-copy-btn" class="copy-btn" style="background:#1e3a2a;border:1px solid #22c55e;color:#4ade80;flex:1;">Copy email</button>
         <button onclick="markEmailSent()" id="email-mark-btn" class="gen-btn" style="background:linear-gradient(135deg,#7c3aed,#2563eb);margin-top:0;flex:1;padding:12px;">
           ✓ Sent — Load Next
         </button>
@@ -941,7 +941,7 @@
         document.getElementById('email-body-box').textContent = d.body;
         document.getElementById('email-sent-today').textContent = d.sent_today;
         document.getElementById('email-note').textContent =
-          'Hit "Open in Gmail" — address, subject and body all filled in, just send. (Body is also on your clipboard.)';
+          'Hit "Open in Gmail" and everything is filled in, just send. Or "Copy email" puts address, subject and body on your clipboard.';
         document.getElementById('email-out-section').style.display = 'block';
       }
     } catch(e) {
@@ -1007,11 +1007,14 @@
   }
 
   function copyEmailBody() {
-    const body = document.getElementById('email-body-box').textContent;
-    navigator.clipboard.writeText(body).then(() => {
+    const to      = document.getElementById('email-to').textContent.trim();
+    const subject = document.getElementById('email-subject').textContent.trim();
+    const body    = document.getElementById('email-body-box').textContent;
+    const text = `${to}\n${subject}\n\n${body}`;
+    navigator.clipboard.writeText(text).then(() => {
       const btn = document.getElementById('email-copy-btn');
       btn.textContent = 'Copied!'; btn.style.background = '#16a34a'; btn.style.color = '#fff';
-      setTimeout(() => { btn.textContent = 'Copy body'; btn.style.background = '#1e3a2a'; btn.style.color = '#4ade80'; }, 2000);
+      setTimeout(() => { btn.textContent = 'Copy email'; btn.style.background = '#1e3a2a'; btn.style.color = '#4ade80'; }, 2000);
     });
   }
 
