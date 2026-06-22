@@ -1060,15 +1060,25 @@ def _email_first_name(owner_name: str) -> str:
         return first[:1].upper() + first[1:]
     return ""
 
-def _email_subject(company_name: str, niche: str = "") -> str:
-    """Short, lowercase, personal-looking subject. Title-case 'Free Quote Tool!'
-    subjects read as spam; these read like a real person wrote them. Rotated so a
-    batch isn't textually identical."""
+def _email_subject(company_name: str, niche: str = "", first: str = "") -> str:
+    """Short, lowercase, personalised subject — the format the open-rate data backs
+    (Gong's 85M-email study + Belkins 2025): all-lowercase beats title case ~15-20%,
+    1-4 words wins, a first name lifts opens ~22% (the strongest lever), company name
+    ~18%, and a light question adds curiosity. Zero selling words (no 'free',
+    'quote' kept minimal) so it reads like a note from a mate, not a blast. Rotated
+    so a batch isn't identical. Falls back to the business name when no first name."""
     who = _clean_company_name(company_name) or "your business"
+    if first:
+        f = first.lower()   # all-lowercase reads like a colleague, not marketing
+        return random.choice([
+            f"{f}, quick one",
+            f"quick one for you {f}",
+            f"{f}, worth a quick look?",
+        ])
     return random.choice([
-        f"quick one about {who}",
-        f"made something for {who}",
-        f"a quick idea for {who}",
+        f"quick one for {who}",
+        f"{who}, worth a look?",
+        f"quick question for {who}",
     ])
 
 def _clean_fb_title(title: str) -> str:
@@ -1094,14 +1104,19 @@ def _clean_fb_title(title: str) -> str:
     return t
 
 def _build_email(opener: str, page_text: str, lead: dict, page_title: str = "") -> tuple:
-    """Compose the owner email as (subject, body). Reuses the same niche-tailored
-    pitch core as the Facebook DM (pick_body), wrapped with a name greeting and a
-    signed sign-off, with a personalised opener line prepended when one was
-    generated from their page.
+    """Compose the owner email as (subject, body).
 
-    The business name comes from the page <title> (clean), falling back to a plain
-    'your business' — we never scrape it from body text, which on a non-English
-    Facebook session is full of UI noise."""
+    This is a COLD email to a busy tradesman who has plenty of competition, so it
+    earns its place: one genuine line proving we looked at their page, then it
+    leads with what's in it for THEM (instant prices filter time-wasters; serious
+    leads arrive with budget + details; they reply before a competitor does). It
+    does NOT explain how the tool works step by step — owners don't care. The
+    "I already built one on your branding, want the link?" close makes it
+    believable that a real thing exists, and the student framing explains the
+    'free'. Segments are rotated so a batch isn't textually identical.
+
+    Business name comes from the page <title> (clean), else 'your business' — we
+    never scrape it from body text, which on a non-English FB session is noise."""
     owner = lead.get("name", "")
     city  = lead.get("city", "")
     niche = lead.get("niche", "")
@@ -1113,22 +1128,61 @@ def _build_email(opener: str, page_text: str, lead: dict, page_title: str = "") 
         td += f"\n\n--- LISTED CITY ---\n{city}"
 
     company = _clean_fb_title(page_title) or "your business"
-    core = pick_body(detect_trade(td), td, city, company).strip()
-    if core.endswith("Cheers"):
-        core = core[: -len("Cheers")].rstrip()
+    niche_resolved = niche or _en_detect_niche(td, company)
+    _, job, _examples = _pitch_for(niche_resolved)   # e.g. "a new bathroom"
 
     first = _email_first_name(owner)
-    greet = f"Hi {first}," if first else "Hi,"
+    greet = f"Hey {first}," if first else "Hey,"
 
+    # One genuine personal line (from their page), kept to a single sentence.
     op = (opener or "").strip()
     if op:
         op = op[:1].upper() + op[1:]
         if not op.endswith((".", "!", "?")):
             op += "."
-        op += " "
 
-    body = f"{greet}\n\n{op}{core}\n\nCheers,\n{EMAIL_SIGNOFF}"
-    return _email_subject(company, niche), tidy_message(body)
+    # LEAD with the honest student / case-study framing. Goal is real examples,
+    # not money — and crucially never the word "free" (a classic spam-filter
+    # trigger). This disarms the "what's the catch" before the pitch.
+    frame = random.choice([
+        ("I'm a student putting together instant-quoting tools for trades. Not after anything, "
+         "I just want a couple of real businesses using one so I've got something to show."),
+        ("I'm a student building instant-quoting tools for trades. Not after anything, I just "
+         "want a couple of real businesses using one so I've got something to show."),
+        ("I'm a student making instant-quoting tools for trades. Not chasing anything, I just "
+         "want a couple of real businesses using one so I've got something to show."),
+    ])
+
+    # The benefit, led by filtering time-wasters (your chosen angle), niche-aware.
+    benefit = random.choice([
+        (f"It gives people a price for {job} before they even ring, so the time wasters drop "
+         f"off and the serious ones land with their budget and details already filled in."),
+        (f"It prices {job} for people before they even ring, so the time wasters drop off and "
+         f"the serious ones come through with their budget and details already filled in."),
+        (f"It gives people a price for {job} up front, so the time wasters drop off and only "
+         f"the serious ones reach you, budget and details already filled in."),
+    ])
+
+    # Believable proof (a real thing exists, on their branding) + the ask, now
+    # offering a channel choice (email here, or WhatsApp).
+    close = random.choice([
+        "I've built one on your branding already. Should I send it here or on WhatsApp?",
+        "I've already built one on your branding. Want it here or on WhatsApp?",
+        "Built one on your branding already. Shall I send it here or over WhatsApp?",
+    ])
+
+    blocks = [greet]
+    if op:
+        blocks.append(op)
+    blocks += [frame, benefit, close, f"Cheers,\n{EMAIL_SIGNOFF}"]
+    body = "\n\n".join(blocks)
+    return _email_subject(company, niche, first), tidy_message(body)
+
+
+def _email_clipboard(to: str, subject: str, body: str) -> str:
+    """The full email on the clipboard in one go — address, subject, then body —
+    so a single paste has everything (and the To line is the correct address)."""
+    return f"To: {to or '(no address)'}\nSubject: {subject}\n\n{body}"
 
 
 def pick_stripped_message(text_data: str, name_hint: str = "", company_name: str = "") -> str:
@@ -2273,7 +2327,7 @@ def email_next():
         # No Company FB page → write from spreadsheet data only, no Chrome.
         if not scan_url.startswith("http"):
             subject, body = _build_email("", "", lead)
-            clipboard = copy_to_clipboard(body)
+            clipboard = copy_to_clipboard(_email_clipboard(lead.get("email", ""), subject, body))
             return jsonify({"subject": subject, "email": lead.get("email", ""),
                             "body": body, "lead": lead, "clipboard": clipboard,
                             "sent_today": _email_state["sent_today"]})
@@ -2358,7 +2412,7 @@ def email_next():
                 page_title = ""
 
             subject, body = _build_email(opener, text, lead, page_title)
-            clipboard = copy_to_clipboard(body)
+            clipboard = copy_to_clipboard(_email_clipboard(lead.get("email", ""), subject, body))
 
         return jsonify({"subject": subject, "email": lead.get("email", ""),
                         "body": body, "lead": lead, "clipboard": clipboard,

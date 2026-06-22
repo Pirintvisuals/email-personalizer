@@ -938,7 +938,7 @@
         document.getElementById('email-body-box').textContent = d.body;
         document.getElementById('email-sent-today').textContent = d.sent_today;
         document.getElementById('email-note').textContent = d.clipboard
-          ? '✓ Email body copied. Copy the subject above, open Gmail, paste both, then send.'
+          ? '✓ Full email copied (address + subject + body). Subject also copyable above for Gmail.'
           : 'Copy the body and subject above, then paste into Gmail.';
         document.getElementById('email-out-section').style.display = 'block';
       }
@@ -994,7 +994,10 @@
   }
 
   function copyEmailBody() {
-    const text = document.getElementById('email-body-box').textContent;
+    const to      = document.getElementById('email-to').textContent;
+    const subject = document.getElementById('email-subject').textContent;
+    const body    = document.getElementById('email-body-box').textContent;
+    const text = `To: ${to}\nSubject: ${subject}\n\n${body}`;
     navigator.clipboard.writeText(text).then(() => {
       const btn = document.getElementById('email-copy-btn');
       btn.textContent = 'Copied!'; btn.style.background = '#16a34a'; btn.style.color = '#fff';
