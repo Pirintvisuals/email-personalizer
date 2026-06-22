@@ -1064,21 +1064,27 @@ def _email_subject(company_name: str, niche: str = "", first: str = "") -> str:
     """Short, lowercase, personalised subject — the format the open-rate data backs
     (Gong's 85M-email study + Belkins 2025): all-lowercase beats title case ~15-20%,
     1-4 words wins, a first name lifts opens ~22% (the strongest lever), company name
-    ~18%, and a light question adds curiosity. Zero selling words (no 'free',
-    'quote' kept minimal) so it reads like a note from a mate, not a blast. Rotated
-    so a batch isn't identical. Falls back to the business name when no first name."""
+    ~18%, and curiosity/question framing adds more. Zero selling words (no 'free').
+    These lean on curiosity ('made you something', 'before they even ring') and a
+    real personal hook ('saw your work') rather than the generic 'quick one'.
+    Rotated so a batch isn't identical; falls back to the business name with no first
+    name."""
     who = _clean_company_name(company_name) or "your business"
+    # Short niche word for a relevant variant: "a new bathroom" -> "bathroom".
+    _, job, _ex = _pitch_for(niche)
+    thing = (job or "").replace("a new ", "").replace("a ", "").strip() or "job"
     if first:
         f = first.lower()   # all-lowercase reads like a colleague, not marketing
         return random.choice([
-            f"{f}, quick one",
-            f"quick one for you {f}",
-            f"{f}, worth a quick look?",
+            f"{f}, made you something",
+            f"saw your work, {f}",
+            f"{f}, before they even ring",
+            f"{f}, your {thing} enquiries",
         ])
     return random.choice([
-        f"quick one for {who}",
-        f"{who}, worth a look?",
-        f"quick question for {who}",
+        f"made something for {who}",
+        f"saw your page, {who}",
+        f"{who}, before they even ring",
     ])
 
 def _clean_fb_title(title: str) -> str:
@@ -1177,12 +1183,6 @@ def _build_email(opener: str, page_text: str, lead: dict, page_title: str = "") 
     blocks += [frame, benefit, close, f"Cheers,\n{EMAIL_SIGNOFF}"]
     body = "\n\n".join(blocks)
     return _email_subject(company, niche, first), tidy_message(body)
-
-
-def _email_clipboard(to: str, subject: str, body: str) -> str:
-    """The full email on the clipboard in one go — address, subject, then body —
-    so a single paste has everything (and the To line is the correct address)."""
-    return f"To: {to or '(no address)'}\nSubject: {subject}\n\n{body}"
 
 
 def pick_stripped_message(text_data: str, name_hint: str = "", company_name: str = "") -> str:
@@ -2327,7 +2327,7 @@ def email_next():
         # No Company FB page → write from spreadsheet data only, no Chrome.
         if not scan_url.startswith("http"):
             subject, body = _build_email("", "", lead)
-            clipboard = copy_to_clipboard(_email_clipboard(lead.get("email", ""), subject, body))
+            clipboard = copy_to_clipboard(body)
             return jsonify({"subject": subject, "email": lead.get("email", ""),
                             "body": body, "lead": lead, "clipboard": clipboard,
                             "sent_today": _email_state["sent_today"]})
@@ -2412,7 +2412,7 @@ def email_next():
                 page_title = ""
 
             subject, body = _build_email(opener, text, lead, page_title)
-            clipboard = copy_to_clipboard(_email_clipboard(lead.get("email", ""), subject, body))
+            clipboard = copy_to_clipboard(body)
 
         return jsonify({"subject": subject, "email": lead.get("email", ""),
                         "body": body, "lead": lead, "clipboard": clipboard,
