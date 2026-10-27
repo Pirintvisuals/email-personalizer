@@ -77,14 +77,10 @@ def clean_position(pos: str) -> str:
 
 def build_opener(position: str, quote_what: str) -> str:
     pos = clean_position(position)
-    lines = [f"Láttam, hogy {pos} munkatársat keresnek."]
-    qw = (quote_what or "").strip().strip("„”\"'").rstrip(".")
-    # The cells are task lines lifted from the ad ("Árajánlatok készítése
-    # tervrajzok alapján"), so they go in as the ad's own words about the
-    # job. A cell in brackets is a research note, not ad text.
-    if qw and not qw.startswith("("):
-        lines.append(f"A hirdetés szerint a feladat: „{qw}”.")
-    return " ".join(lines)
+    # quote_what is no longer quoted back: a pasted „ad sentence” read like a
+    # scraper wrote the email (user's call, 2026-10-27). Kept as a parameter
+    # so the column can come back without touching callers.
+    return f"Láttam a hirdetésüket, hogy {pos} munkatársat keresnek."
 
 
 def ajanlat_subject(position: str) -> str:
@@ -106,20 +102,28 @@ def ajanlat_body(opener: str, first: str, niche: str = "") -> str:
     printer = _is_print(niche)
     blocks = [f"Kedves {first}!" if first else "Jó napot kívánok!"]
     blocks.append(opener)
+    # The how-it-works paragraph is what makes it believable: the price
+    # comes from THEIR table, the program only reads the email, and it says
+    # when something is missing instead of guessing.
     blocks += [
-        ("Árajánlatkészítő asszisztenst építek nyomdáknak. " if printer
-         else "Árajánlatkészítő asszisztenst építek. ")
-        + "Bemásolják az ügyfél ajánlatkérését, és kijön belőle egy kész, "
-        "tételes árajánlat az Önök saját árlistájából. Egy kolléga átnézi, "
-        "és már küldheti is.",
+        ("Nyomdáknak építek egy programot, ami az ajánlatkérésekből "
+         "árajánlatot készít. Bemásolják az ügyfél levelét, a program kiszedi "
+         "belőle a formátumot, a példányszámot, a papírt és a színeket, és az "
+         "Önök árlistájából kiszámolja a tételeket." if printer else
+         "Olyan programot építek, ami az ajánlatkérésekből árajánlatot "
+         "készít. Bemásolják az ügyfél levelét, a program kiszedi belőle, mit "
+         "és mennyit kér, és az Önök árlistájából kiszámolja a tételeket."),
 
-        "Így akit most felvesznek, sokkal több ajánlatot tud kiadni, vagy "
-        "nincs szükség egy második emberre.",
+        "Az árat nem a gép találja ki, hanem az Önök táblázatából számol. Ha "
+        "valami hiányzik a levélből, nem találgat, hanem szól.",
 
-        ("Összeraktam egy rövid bemutatót. Elküldjem? Mást nem kérek."
-         if printer else
-         "Megmutassam, hogyan nézne ki ez Önöknél? Mást nem kérek."),
-        "Ha nem kéri, válaszoljon egy szóval, és többé nem keresem.",
+        "Így a kollégának nem kell gépelnie és számolnia, csak átnézi és "
+        "elküldi. Akit most felvesznek, sokkal több ajánlatot tud kiadni, és "
+        "nem kell mellé még egy ember.",
+
+        ("Összeraktam egy rövid bemutatót. Elküldhetem?" if printer else
+         "Összerakhatok Önöknek egy rövid bemutatót?"),
+        "Ha nem érdekli, elég egy szó, és többé nem keresem.",
         # No name here: the Gmail signature below already carries it.
         "Üdvözlettel,",
     ]
