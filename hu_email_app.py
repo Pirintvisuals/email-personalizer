@@ -300,7 +300,8 @@ def _load_excel(path: str):
 
     # Ajánlat mode only: the job ad's position and what they quote for.
     for key, needles in (("position",   ("pozíció", "pozicio", "position")),
-                         ("quote_what", ("mit árajánlatoz", "mit arajanlatoz"))):
+                         ("quote_what", ("mit árajánlatoz", "mit arajanlatoz")),
+                         ("opener_custom", ("nyitómondat", "nyitomondat"))):
         idx = next((i for i, h in enumerate(headers) if any(n in h for n in needles)), None)
         if idx is not None:
             cols[key] = idx
@@ -371,14 +372,11 @@ def _row_in_mode(ws_row, cols) -> bool:
     has mechanics AND builders). Mechanics mode only sees mechanic rows and
     builders mode only sees the rest, so neither email or follow-up ever
     reaches the other trade. Sheets with no Niche column are all one mode.
-    Ajánlat mode only sees rows with a Pozíció, the one fact its opener needs,
-    in a price-list trade (ajanlat.FIT_NICHES)."""
+    Ajánlat mode only sees rows with a Pozíció, the one fact its opener needs."""
     ni = cols.get("niche")
     if _state.get("mode") == "ajanlat":
         pi = cols.get("position")
-        if pi is None or not str(ws_row[pi].value or "").strip():
-            return False
-        return ni is not None and ajanlat.is_fit(str(ws_row[ni].value or ""))
+        return pi is not None and bool(str(ws_row[pi].value or "").strip())
     if ni is None:
         return True
     niche = str(ws_row[ni].value or "").lower()
@@ -407,6 +405,7 @@ def _upcoming_leads(ws, cols, limit=6) -> list:
             "city": heg._clean_city(v("city")), "niche": v("niche"),
             "source": v("source"),
             "position": v("position"), "quote_what": v("quote_what"),
+            "opener_custom": v("opener_custom"),
         })
         if len(out) >= limit:
             break
@@ -441,6 +440,7 @@ def _next_lead(ws, cols, skip_row=None) -> dict | None:
             "source":  v("source"),
             "position":   v("position"),
             "quote_what": v("quote_what"),
+            "opener_custom": v("opener_custom"),
         }
     return None
 

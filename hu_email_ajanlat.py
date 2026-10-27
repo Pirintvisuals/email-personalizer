@@ -2,21 +2,31 @@
 Ajánlatkészítő (job-ad) mode for the HU email sender (hu_email_app.py).
 
 The leads are companies advertising a job for someone who writes quotes
-(ajanlatkeszito_leadek.xlsx). Same shape as hu_email_mech.py: a deterministic
-opener plus fixed body copy, no AI writing anything.
+(ajanlatkeszito_leadek.xlsx). Same shape as hu_email_mech.py: an opener plus
+fixed body copy, no AI writing anything at send time.
 
-WHY THE OPENER IS DETERMINISTIC
-The one fact we really know is the job ad, so the opener says that and
-nothing else: "Láttam, hogy [Pozíció] munkatársat keresnek." If the sheet's
-"Mit árajánlatoz" cell is filled, it goes in quoted, in their own words,
-never rephrased. No site scraping, no years in business, no city.
+THE OPENER
+The one fact we really know is the job ad. Each row can carry a hand-written
+"Nyitómondat" that says, in plain words, what the ad asks for; the user
+reads it in Excel before anything goes out. A row without one falls back to
+"Láttam a hirdetésüket, hogy [Pozíció] munkatársat keresnek."
+
+ONE BODY FOR EVERY TRADE
+Same text for all leads, only the trade word changes ("Nyomdáknak",
+"Generálkivitelezőknek"), said the way the trade names itself. Separate
+bodies per made-up category read like a consultant wrote them (user's call,
+2026-10-27).
+
+"ALREADY BUILT" IS THE POINT
+Every lead's demo is built before their email goes out; the email only asks
+permission to send it, since a first cold email carries no link (user's
+call, 2026-10-27). So the line sits right after the opener, for everyone.
+That makes it a rule for sending: build the lead's demo first.
 
 Copy rules (same as mech mode):
   * magázás, no em dash, no link, no time figure
-  * the benefit: the person they are hiring makes many more quotes, or they
-    don't need a second one
-  * close stays small: "Megmutassam egy saját, korábbi árajánlatukon? Mást
-    nem kérek."
+  * never pitch it as simple: built on their own calculation, the program
+    makes a first draft, a colleague checks it
   * two follow-ups only (the shared schedule has three; hu_email_app stops
     this mode after step 2)
 """
@@ -28,16 +38,35 @@ import hu_email_gen as heg
 
 MAX_STEP = 2
 
-# Trades whose quotes come out of a price table (format, material, quantity),
-# which is what the body promises. Engineering roles that price from drawings
-# ("műszaki előkészítő", quantity takeoff) are left out on purpose: the email
-# would promise something the assistant can't do yet (user's call, 2026-10-27).
-FIT_NICHES = ("nyomda", "textil", "nyílászáró", "nyilaszaro")
+# (keyword in the sheet's Niche cell, how the email names the trade).
+# First match wins, so the more specific keyword goes first.
+_TRADE_DATIVE = [
+    ("nyomd",              "Nyomdáknak"),
+    ("nyílászáró",         "Nyílászárógyártóknak"),
+    ("kaputechn",          "Kaputechnikai cégeknek"),
+    ("bútor",              "Bútorgyártóknak"),
+    ("textil",             "Ponyva- és kárpitkészítőknek"),
+    ("elektronik",         "Elektronikai gyártóknak"),
+    ("acélszerkezet",      "Acélszerkezet-gyártóknak"),
+    ("fémszerkezet",       "Fémszerkezet-gyártóknak"),
+    ("lemezmegmunk",       "Lemezmegmunkáló cégeknek"),
+    ("automatiz",          "Automatizálással foglalkozó cégeknek"),
+    ("generálkivitel",     "Generálkivitelezőknek"),
+    ("épületgépész",       "Épületgépészeti cégeknek"),
+    ("csőszerel",          "Épületgépészeti cégeknek"),
+    ("villanyszerel",      "Villanyszerelő cégeknek"),
+    ("homlokzat",          "Homlokzatburkoló cégeknek"),
+    ("házépít",            "Házépítő cégeknek"),
+    ("irodaépít",          "Irodaépítéssel foglalkozó cégeknek"),
+    ("magasépít",          "Építőipari cégeknek"),
+    ("építőip",            "Építőipari cégeknek"),
+]
 
 
-def is_fit(niche: str) -> bool:
+def trade_dative(niche: str) -> str:
     n = (niche or "").lower()
-    return any(w in n for w in FIT_NICHES)
+    return next((d for k, d in _TRADE_DATIVE if k in n), "")
+
 
 _VOWELS = "aáeéiíoóöőuúüű"
 
@@ -75,12 +104,12 @@ def clean_position(pos: str) -> str:
                     for w in p.split())
 
 
-def build_opener(position: str, quote_what: str) -> str:
-    pos = clean_position(position)
-    # quote_what is no longer quoted back: a pasted „ad sentence” read like a
-    # scraper wrote the email (user's call, 2026-10-27). Kept as a parameter
-    # so the column can come back without touching callers.
-    return f"Láttam a hirdetésüket, hogy {pos} munkatársat keresnek."
+def build_opener(position: str, custom: str = "") -> str:
+    """The row's own Nyitómondat if it has one, else the plain fallback."""
+    custom = (custom or "").strip()
+    if custom:
+        return custom
+    return f"Láttam a hirdetésüket, hogy {clean_position(position)} munkatársat keresnek."
 
 
 def ajanlat_subject(position: str) -> str:
@@ -89,44 +118,31 @@ def ajanlat_subject(position: str) -> str:
     return f"{art[0].upper()}{art[1:]} {pos} pozícióról"
 
 
-def _is_print(niche: str) -> bool:
-    return "nyomd" in (niche or "").lower()
-
-
 def ajanlat_body(opener: str, first: str, niche: str = "") -> str:
-    """The close depends on what exists. Print shops: the nyomda demo is
-    built, so it offers that. Other trades: no demo yet (it gets built after
-    a reply, user's call 2026-10-27), so it only offers to show how it would
-    look. Never promises work on their own old quote: that needs their
-    numbers, which we don't have."""
-    printer = _is_print(niche)
-    blocks = [f"Kedves {first}!" if first else "Jó napot kívánok!"]
-    blocks.append(opener)
-    # Never pitch it as simple: a calculator knows his pricing is more
-    # complicated than any outsider thinks, and a neat one-line pipeline
-    # reads as naive (user's call, 2026-10-27). So the body says it is built
-    # around THEIR calculation, starting from how they quote today, and the
-    # benefit is modest: less typing, more time for the hard jobs.
-    shop, owner = ("nyomdánál", "nyomda") if printer else ("cégnél", "cég")
-    blocks += [
-        ("Nyomdáknak építek ajánlatkészítő programot" if printer
-         else "Ajánlatkészítő programot építek")
-        + f", de nem kész szoftvert árulok. Minden {shop} máshogy áll össze "
-        f"az ár, ezért mindig az adott {owner} saját kalkulációjára építem fel: "
-        "azokra a szabályokra, amik alapján a kollégák most is számolnak.",
+    trade = trade_dative(niche)
+    intro = (f"{trade} építek ilyen programokat." if trade
+             else "Ilyen programokat építek.")
+    blocks = [
+        f"Kedves {first}!" if first else "Jó napot kívánok!",
 
-        "Ehhez először végignézném Önökkel, hogyan készül most egy ajánlat, "
-        "és pontosan azt építeném be. A program a beérkező ajánlatkérésből "
-        "elkészíti az első változatot, a kolléga pedig ellenőrzi. Amit nem "
-        "tud biztosan, azt nem találgatja, hanem jelzi.",
+        opener + " Összeraktam Önöknek egy ajánlatkészítő programot, ami "
+        "ebben a munkában segít.",
 
-        "Így akit most felvesznek, kevesebbet gépel és számol, több ajánlatot "
-        "ad ki, és az ideje a bonyolultabb munkákra marad.",
+        # Sample prices said up front keeps "built for you" true: the shape
+        # is theirs, the numbers come once they share them.
+        intro + " Minden cég máshogy számol, ezért az éles verziót mindig az "
+        "adott cég saját kalkulációjára építem, abból kiindulva, ahogy a "
+        "kollégák most dolgoznak. Egyelőre mintaárakkal működik.",
 
-        # The print demo runs on sample prices; saying so keeps "custom" true.
-        ("Összeraktam egy rövid bemutatót mintaárakkal, hogy lássa, hogyan "
-         "nézne ki. Elküldhetem?" if printer else
-         "Összerakhatok Önöknek egy rövid bemutatót?"),
+        "A program a beérkező ajánlatkérésből elkészíti az ajánlat első "
+        "változatát, a kolléga pedig ellenőrzi és kiküldi. Ahol bizonytalan, "
+        "ott szól.",
+
+        # "kevesebbet gépel" undersold the engineers on the list.
+        "Így akit most felvesznek, kevesebb időt tölt ismétlődő munkával, "
+        "több ajánlatot ad ki, és a bonyolultabb munkákra marad ideje.",
+
+        "Csak megmutatnám, mást nem kérek. Elküldhetem?",
         "Ha nem érdekli, elég egy szó, és többé nem keresem.",
         # No name here: the Gmail signature below already carries it.
         "Üdvözlettel,",
@@ -153,7 +169,7 @@ def process_lead(lead: dict) -> dict:
         lead["subject"] = lead["body"] = lead["opener"] = ""
         return lead
 
-    opener = build_opener(position, lead.get("quote_what", ""))
+    opener = build_opener(position, lead.get("opener_custom", ""))
     lead["opener"] = opener
     lead["subject"] = ajanlat_subject(position)
     lead["body"] = ajanlat_body(opener, first, lead.get("niche", ""))
@@ -173,12 +189,9 @@ def followup_body(step: int, first: str, niche: str = "") -> str:
                 "Csak visszajelzek a múltkori levelemre, hátha lecsúszott.",
             ]),
             random.choice([
-                "A nyomdáknak készült bemutató megvan, csak szólnia kell. "
-                "Elküldhetem?",
-                "A bemutató, amit nyomdáknak raktam össze, megvan. Küldhetem?",
-            ] if _is_print(niche) else [
-                "Szívesen megmutatom, hogyan nézne ki ez Önöknél. Megmutassam?",
-                "Meg tudom mutatni, hogyan működne Önöknél. Megmutassam?",
+                "A program, amit Önöknek raktam össze, megvan, csak szólnia "
+                "kell. Elküldhetem?",
+                "Az Önöknek összerakott program megvan. Elküldhetem?",
             ]),
             "Üdvözlettel,",
         ]
