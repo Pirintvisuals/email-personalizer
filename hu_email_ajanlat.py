@@ -102,31 +102,30 @@ def ajanlat_body(opener: str, first: str, niche: str = "") -> str:
     printer = _is_print(niche)
     blocks = [f"Kedves {first}!" if first else "Jó napot kívánok!"]
     blocks.append(opener)
-    # The how-it-works paragraph is what makes it believable: the price
-    # comes from THEIR table, the program only reads the email, and it says
-    # when something is missing instead of guessing.
+    # Never pitch it as simple: a calculator knows his pricing is more
+    # complicated than any outsider thinks, and a neat one-line pipeline
+    # reads as naive (user's call, 2026-10-27). So the body says it is built
+    # around THEIR calculation, starting from how they quote today, and the
+    # benefit is modest: less typing, more time for the hard jobs.
+    shop, owner = ("nyomdánál", "nyomda") if printer else ("cégnél", "cég")
     blocks += [
-        ("Nyomdáknak építek egy programot" if printer
-         else "Olyan programot építek")
-        + ", ami az ajánlatkérésekből árajánlatot készít. Bemásolják az "
-        "ügyfél levelét, a program kigyűjti belőle az adatokat, és az Önök "
-        "kalkulációs szabályai és árlistája alapján összerakja a tételes "
-        "ajánlatot.",
+        ("Nyomdáknak építek ajánlatkészítő programot" if printer
+         else "Ajánlatkészítő programot építek")
+        + f", de nem kész szoftvert árulok. Minden {shop} máshogy áll össze "
+        f"az ár, ezért mindig az adott {owner} saját kalkulációjára építem fel: "
+        "azokra a szabályokra, amik alapján a kollégák most is számolnak.",
 
-        # Don't list the inputs: a calculator knows a price depends on more
-        # than format and paper, and a short list reads as naive (user's
-        # call, 2026-10-27). Admit it and say it follows THEIR rules.
-        ("Tudom, hogy egy nyomdai ár sok mindentől függ" if printer
-         else "Tudom, hogy egy ár sok mindentől függ")
-        + ", és nem minden munka sablonos. Az árat ezért nem a gép "
-        "találja ki, hanem úgy számol, ahogy Önök. Ha valami hiányzik, vagy a "
-        "munka túl egyedi, nem találgat, hanem jelzi.",
+        "Ehhez először végignézném Önökkel, hogyan készül most egy ajánlat, "
+        "és pontosan azt építeném be. A program a beérkező ajánlatkérésből "
+        "elkészíti az első változatot, a kolléga pedig ellenőrzi. Amit nem "
+        "tud biztosan, azt nem találgatja, hanem jelzi.",
 
-        "Így a kollégának nem kell gépelnie és számolnia, csak átnézi és "
-        "elküldi. Akit most felvesznek, sokkal több ajánlatot tud kiadni, és "
-        "nem kell mellé még egy ember.",
+        "Így akit most felvesznek, kevesebbet gépel és számol, több ajánlatot "
+        "ad ki, és az ideje a bonyolultabb munkákra marad.",
 
-        ("Összeraktam egy rövid bemutatót. Elküldhetem?" if printer else
+        # The print demo runs on sample prices; saying so keeps "custom" true.
+        ("Összeraktam egy rövid bemutatót mintaárakkal, hogy lássa, hogyan "
+         "nézne ki. Elküldhetem?" if printer else
          "Összerakhatok Önöknek egy rövid bemutatót?"),
         "Ha nem érdekli, elég egy szó, és többé nem keresem.",
         # No name here: the Gmail signature below already carries it.
