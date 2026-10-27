@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DM Generator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f1117; color: #e8eaf0;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 40px 20px;
+    }
+
+    h1 {
+      font-size: 1.6rem; font-weight: 700; margin-bottom: 6px;
+      background: linear-gradient(135deg, #4ade80, #22d3ee);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .sub { color: #6b7a99; font-size: 0.88rem; margin-bottom: 32px; text-align: center; }
+
+    .steps {
+      background: #111827; border: 1px solid #1e3a5f;
+      border-radius: 12px; padding: 16px 20px; width: 100%; max-width: 560px;
+      margin-bottom: 20px; display: flex; gap: 12px; align-items: flex-start;
+    }
+    .step {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px; flex: 1; text-align: center;
+    }
+    .step-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: linear-gradient(135deg, #1e3a5f, #1a2a4a);
+      border: 1px solid #3b82f6; color: #93c5fd;
+      font-size: 0.85rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-text { font-size: 0.78rem; color: #8b9cb8; line-height: 1.4; }
+    .step-arrow { color: #2e3650; font-size: 1.2rem; padding-top: 6px; }
+
+    .card {
+      background: #1a1d27; border: 1px solid #2a2f42;
+      border-radius: 16px; padding: 32px; width: 100%; max-width: 560px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    label { display: block; font-size: 0.78rem; font-weight: 600; color: #8b9cb8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
+
+    input[type="text"], textarea {
+      width: 100%; background: #12151e; border: 1px solid #2e3650;
+      border-radius: 8px; color: #e8eaf0; padding: 11px 14px;
+      font-size: 0.92rem; outline: none; transition: border-color .2s;
+    }
+    input[type="text"]:focus, textarea:focus { border-color: #4ade80; }
+    textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+
+    .divider {
+      text-align: center; color: #3a4160; font-size: 0.78rem;
+      margin: 18px 0; position: relative;
+    }
+    .divider::before, .divider::after {
+      content: ""; position: absolute; top: 50%; width: 42%; height: 1px;
+      background: #2a2f42;
+    }
+    .divider::before { left: 0; }
+    .divider::after  { right: 0; }
+
+    /* Image drop zone */
+    #drop-zone {
+      border: 2px dashed #2e3650; border-radius: 10px; padding: 28px 20px;
+      text-align: center; cursor: pointer; background: #12151e;
+      transition: border-color .2s, background .2s; margin-bottom: 0;
+    }
+    #drop-zone:hover, #drop-zone.over { border-color: #4ade80; background: #0d1a10; }
+    #drop-zone p { color: #8b9cb8; font-size: 0.85rem; }
+    #drop-zone span { color: #4ade80; font-weight: 600; }
+    #drop-zone .fname { margin-top: 8px; font-size: 0.82rem; color: #4ade80; min-height: 18px; }
+    #img-input { display: none; }
+
+    .section { margin-bottom: 20px; }
+
+    /* Buttons */
+    .gen-btn {
+      width: 100%; margin-top: 14px; padding: 16px;
+      color: #fff; border: none; border-radius: 10px;
+      font-size: 1.05rem; font-weight: 700; cursor: pointer;
+      transition: opacity .2s, transform .1s;
+    }
+    .gen-btn:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
+    .gen-btn:disabled { opacity: .45; cursor: not-allowed; }
+    #gen-btn      { background: linear-gradient(135deg, #16a34a, #0891b2); margin-top: 24px; }
+    #gen-vn-btn   { background: linear-gradient(135deg, #7c3aed, #2563eb); }
+
+    .optional-tag {
+      font-size: 0.7rem; color: #3a4160; font-weight: 400;
+      text-transform: none; letter-spacing: 0; margin-left: 6px;
+    }
+
+    /* Output */
+    #output    { display: none; margin-top: 28px; }
+    #vn-output { display: none; margin-top: 28px; }
+
+    .output-label {
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; margin-bottom: 8px;
+    }
+    #output .output-label    { color: #4ade80; }
+    #vn-output .output-label { color: #a78bfa; }
+
+    .result-box {
+      background: #12151e; border: 1px solid #2e3650; border-radius: 10px;
+      padding: 18px; font-size: 1rem; line-height: 1.6; color: #e8eaf0;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .char-count { font-size: 0.75rem; color: #6b7a99; margin-top: 6px; text-align: right; }
+
+    #dm-candidates { display: none; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .dm-chip {
+      flex: 1 1 0; min-width: 90px; padding: 9px 12px; cursor: pointer;
+      border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+      background: #1a1d27; border: 1px solid #2e3650; color: #8b9bbd;
+      transition: background .15s, border-color .15s, color .15s;
+    }
+    .dm-chip:hover  { background: #20242f; color: #c3cde0; }
+    .dm-chip.active { background: #1e3a2a; border-color: #22c55e; color: #4ade80; }
+
+    .copy-btn {
+      width: 100%; margin-top: 12px; padding: 12px;
+      border-radius: 8px; font-size: 0.92rem;
+      font-weight: 600; cursor: pointer; transition: background .2s;
+    }
+    #copy-btn    { background: #1e3a2a; border: 1px solid #22c55e; color: #4ade80; }
+    #copy-btn:hover    { background: #163020; }
+    #copy-btn.copied   { background: #16a34a; color: #fff; border-color: #16a34a; }
+    #copy-vn-btn { background: #1e1a3a; border: 1px solid #7c3aed; color: #a78bfa; }
+    #copy-vn-btn:hover { background: #16122e; }
+    #copy-vn-btn.copied { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+
+    #reset-btn {
+      width: 100%; margin-top: 10px; padding: 10px;
+      background: transparent; border: 1px solid #2e3650;
+      color: #6b7a99; border-radius: 8px; font-size: 0.85rem;
+      cursor: pointer; transition: border-color .2s, color .2s;
+    }
+    #reset-btn:hover { border-color: #22d3ee; color: #22d3ee; }
+
+    /* Warning */
+    #warning { display: none; margin-top: 12px; padding: 10px 14px; background: #1e1a0a; border: 1px solid #854d0e; border-radius: 8px; color: #fbbf24; font-size: 0.82rem; }
+
+    /* Error */
+    #error {
+      display: none; margin-top: 16px; padding: 12px 14px;
+      background: #2d1515; border: 1px solid #7f1d1d;
+      border-radius: 8px; color: #fca5a5; font-size: 0.85rem;
+    }
+
+    .footer { margin-top: 24px; font-size: 0.72rem; color: #2e3650; }
+  </style>
+</head>
+<body>
+
+<h1>DM Generator</h1>
+<p class="sub">Scroll in Chrome durch das Profil — die App macht Screenshots und schreibt die DM</p>
+
+<div style="display:flex;gap:10px;margin-bottom:24px;">
+  <button onclick="showTab('manual')"   id="tab-manual"   style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#16a34a;color:#fff;border:none;">Manuell</button>
+  <button onclick="showTab('auto')"     id="tab-auto"     style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#1a1d27;color:#6b7a99;border:1px solid #2a2f42;">Auto-Sender</button>
+  <button onclick="showTab('email')"    id="tab-email"    style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#1a1d27;color:#6b7a99;border:1px solid #2a2f42;">Inhaber-E-Mails</button>
+  <button onclick="showTab('followup')" id="tab-followup" style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#1a1d27;color:#6b7a99;border:1px solid #2a2f42;">Nachfassen</button>
+</div>
+
+<div id="section-manual">
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-text">Chrome öffnen<br>(START DE.bat)</div>
+  </div>
+  <div class="step-arrow">→</div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-text">Profil in diesem<br>Chrome öffnen</div>
+  </div>
+  <div class="step-arrow">→</div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-text">Hierher zurück<br>Generieren klicken</div>
+  </div>
+</div>
+
+<div class="card">
+
+  <div class="section">
+    <label>Profil-URL <span class="optional-tag">(optional — hilft, den richtigen Tab zu finden)</span></label>
+    <input type="text" id="url-input" placeholder="https://www.facebook.com/beispiel"/>
+  </div>
+
+  <div class="divider">oder mit einem Screenshot überschreiben</div>
+
+  <div class="section">
+    <label>Screenshot <span class="optional-tag">(mit Strg+V einfügen oder hochladen)</span></label>
+    <div id="drop-zone" onclick="document.getElementById('img-input').click()">
+      <p>Drück <span>Strg+V</span> zum Einfügen — oder klick zum Hochladen</p>
+      <div class="fname" id="fname"></div>
+    </div>
+    <input type="file" id="img-input" accept="image/*"/>
+  </div>
+
+  <div class="divider">oder Notizen hinzufügen</div>
+
+  <div class="section">
+    <label>Profil-Notizen <span class="optional-tag">(alles, was du über sie weißt)</span></label>
+    <textarea id="notes-input" placeholder="z.B. Huber Gartenbau, Graz, seit 12 Jahren, 47 Google-Bewertungen, spezialisiert auf Einfahrten"></textarea>
+  </div>
+
+  <button id="gen-btn" class="gen-btn">DM generieren</button>
+  <button id="gen-vn-btn" class="gen-btn">WhatsApp-Sprachnachricht-Skript generieren</button>
+
+  <div id="warning"></div>
+  <div id="error"></div>
+
+  <div id="output">
+    <div class="output-label">Facebook DM</div>
+    <div id="dm-candidates"></div>
+    <div id="dm-box" class="result-box"></div>
+    <div id="char-count" class="char-count"></div>
+    <button id="copy-btn" class="copy-btn" onclick="copyDM()">DM kopieren</button>
+    <button id="reset-btn" onclick="reset()">Noch eine generieren</button>
+  </div>
+
+  <div id="vn-output">
+    <div class="output-label">WhatsApp-Sprachnachricht-Skript</div>
+    <div id="vn-box" class="result-box"></div>
+    <div id="vn-char-count" class="char-count"></div>
+    <button id="copy-vn-btn" class="copy-btn" onclick="copyVN()">Skript kopieren</button>
+    <button id="reset-vn-btn" onclick="resetVN()">Noch eine generieren</button>
+  </div>
+</div>
+
+</div><!-- end section-manual -->
+
+<!-- ── Auto Sender ───────────────────────────────────────────── -->
+<div id="section-auto" style="display:none;width:100%;max-width:560px;">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;background:#12151e;border:1px solid #2e3650;border-radius:10px;padding:12px 14px;margin-bottom:16px;">
+    <div>
+      <div style="font-size:0.9rem;font-weight:700;color:#e8eaf0;">Nachrichtenstil</div>
+      <div id="variant-desc" style="font-size:0.76rem;color:#6b7a99;margin-top:2px;"></div>
+    </div>
+    <button id="variant-toggle" onclick="toggleVariant()" style="padding:9px 18px;border-radius:999px;font-weight:700;font-size:0.82rem;cursor:pointer;border:none;white-space:nowrap;"></button>
+  </div>
+
+  <div id="auto-followups-banner" onclick="showTab('followup')" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:#1e1a3a;border:1px solid #7c3aed;border-radius:10px;padding:11px 14px;margin-bottom:16px;cursor:pointer;">
+    <div style="font-size:0.88rem;font-weight:700;color:#a78bfa;"><span id="auto-followups-count">0</span> Nachfass-Nachrichten fällig</div>
+    <div style="font-size:0.78rem;color:#a78bfa;font-weight:700;">Abarbeiten &rarr;</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <label>Excel-Dateipfad <span class="optional-tag">(leer lassen für Auto-Erkennung)</span></label>
+    <input type="text" id="excel-path" placeholder="C:\Users\du\leads.xlsx" value="{{ default_excel or 'C:\\Users\\pirin\\OneDrive\\Asztali gép\\Austrian_Leads_100.xlsx' }}"/>
+    <button onclick="loadExcel()" class="gen-btn" style="background:linear-gradient(135deg,#1e3a5f,#0891b2);margin-top:12px;">Leads laden</button>
+    <div id="auto-load-status" style="margin-top:10px;font-size:0.85rem;color:#6b7a99;"></div>
+  </div>
+
+  <div class="card" id="auto-main" style="display:none;">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <div>
+        <div style="font-size:0.75rem;color:#6b7a99;text-transform:uppercase;letter-spacing:.05em;">Nächster Lead</div>
+        <div id="auto-company" style="font-size:1.1rem;font-weight:700;color:#e8eaf0;margin-top:3px;"></div>
+        <div id="auto-url" style="font-size:0.78rem;color:#4ade80;margin-top:2px;word-break:break-all;"></div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:0.75rem;color:#6b7a99;">Heute gesendet</div>
+        <div id="auto-sent-today" style="font-size:1.4rem;font-weight:700;color:#22d3ee;">0</div>
+        <div id="auto-progress" style="font-size:0.75rem;color:#6b7a99;"></div>
+      </div>
+    </div>
+
+    <div style="font-size:0.78rem;color:#6b7a99;margin-bottom:10px;line-height:1.5;">
+      Unten klicken → App öffnet das Profil, generiert &amp; <strong style="color:#4ade80;">kopiert die DM in die Zwischenablage</strong>, öffnet den Chat.<br>
+      Du klickst nur ins Nachrichtenfeld und drückst <strong style="color:#22d3ee;">Strg+V</strong>, dann Enter zum Senden.
+    </div>
+    <button onclick="nextLead()" id="auto-next-btn" class="gen-btn" style="background:linear-gradient(135deg,#16a34a,#0891b2);">
+      ▶ Profil öffnen &amp; DM generieren
+    </button>
+    <button onclick="skipLead()" id="auto-skip-btn" class="gen-btn" style="background:#1a1d27;border:1px solid #4b5563;color:#9ca3af;margin-top:8px;font-size:0.85rem;padding:10px;">
+      ⟶ Diesen Lead überspringen
+    </button>
+
+    <div id="auto-dm-section" style="display:none;margin-top:20px;">
+      <div class="output-label" style="color:#4ade80;">Generierte DM</div>
+      <div id="auto-dm-box" class="result-box" style="margin-top:8px;"></div>
+      <div id="auto-typed-note" style="margin-top:8px;font-size:0.82rem;color:#fbbf24;"></div>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button onclick="copyAutoDM()" id="auto-copy-btn" class="copy-btn" style="background:#1e3a2a;border:1px solid #22c55e;color:#4ade80;flex:1;">DM kopieren</button>
+        <button onclick="markSent()" id="auto-mark-btn" class="gen-btn" style="background:linear-gradient(135deg,#7c3aed,#2563eb);margin-top:0;flex:1;padding:12px;">
+          ✓ Gesendet — Nächsten laden
+        </button>
+      </div>
+    </div>
+
+    <div id="auto-error" style="display:none;margin-top:12px;padding:10px 14px;background:#2d1515;border:1px solid #7f1d1d;border-radius:8px;color:#fca5a5;font-size:0.85rem;"></div>
+
+  </div>
+</div>
+
+<!-- ── Owner Emails Tab ──────────────────────────────────────── -->
+<div id="section-email" style="display:none;width:100%;max-width:560px;">
+  <div class="card" style="margin-bottom:16px;">
+    <label>Excel-Dateipfad <span class="optional-tag">(leer lassen für Auto-Erkennung)</span></label>
+    <input type="text" id="email-path" placeholder="C:\Users\du\leads.xlsx" value="{{ default_excel or 'C:\\Users\\pirin\\OneDrive\\Asztali gép\\Austrian_Leads_100.xlsx' }}"/>
+    <button onclick="loadEmailExcel()" class="gen-btn" style="background:linear-gradient(135deg,#1e3a5f,#0891b2);margin-top:12px;">E-Mail-Leads laden</button>
+    <div id="email-load-status" style="margin-top:10px;font-size:0.85rem;color:#6b7a99;"></div>
+  </div>
+
+  <div class="card" id="email-main" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+      <div style="min-width:0;">
+        <div style="font-size:0.72rem;color:#6b7a99;text-transform:uppercase;letter-spacing:0.05em;">Aktueller Lead</div>
+        <div id="email-company" style="font-size:1.1rem;font-weight:700;color:#e8eaf0;margin-top:3px;"></div>
+        <div id="email-to" style="font-size:0.8rem;color:#4ade80;margin-top:2px;word-break:break-all;"></div>
+      </div>
+      <div style="text-align:right;white-space:nowrap;">
+        <div id="email-sent-today" style="font-size:1.4rem;font-weight:700;color:#22d3ee;">0</div>
+        <div id="email-progress" style="font-size:0.75rem;color:#6b7a99;"></div>
+      </div>
+    </div>
+
+    <div style="font-size:0.82rem;color:#6b7a99;margin-top:14px;line-height:1.5;">
+      Unten klicken → App öffnet ihre Facebook-Seite, schreibt die E-Mail &amp; <strong style="color:#4ade80;">öffnet Gmail mit allem ausgefüllt</strong>. Nur prüfen und auf Senden klicken.
+    </div>
+
+    <button onclick="nextEmailLead()" id="email-next-btn" class="gen-btn" style="background:linear-gradient(135deg,#16a34a,#0891b2);margin-top:14px;">
+      ▶ Seite scannen &amp; E-Mail schreiben
+    </button>
+    <button onclick="skipEmailLead()" id="email-skip-btn" class="gen-btn" style="background:#1a1d27;border:1px solid #4b5563;color:#9ca3af;margin-top:8px;font-size:0.85rem;padding:10px;">
+      ⟶ Diesen Lead überspringen
+    </button>
+
+    <div id="email-out-section" style="display:none;margin-top:20px;">
+      <div class="output-label" style="color:#4ade80;">Generierte E-Mail</div>
+      <div style="display:flex;gap:8px;align-items:center;margin:8px 0;">
+        <div style="flex:1;font-size:0.9rem;color:#e8eaf0;">Betreff: <span id="email-subject" style="font-weight:700;"></span></div>
+        <button onclick="copyEmailSubject()" id="email-subj-btn" class="copy-btn" style="background:#1a2332;border:1px solid #2563eb;color:#60a5fa;padding:6px 12px;font-size:0.78rem;white-space:nowrap;">Betreff kopieren</button>
+      </div>
+      <div id="email-body-box" class="result-box" style="margin-top:8px;"></div>
+      <div id="email-note" style="margin-top:8px;font-size:0.82rem;color:#fbbf24;"></div>
+      <button onclick="openInGmail()" id="email-gmail-btn" class="gen-btn" style="background:linear-gradient(135deg,#16a34a,#0891b2);margin-top:12px;">
+        ✉ In Gmail öffnen (alles ausgefüllt)
+      </button>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button onclick="copyEmailBody()" id="email-copy-btn" class="copy-btn" style="background:#1e3a2a;border:1px solid #22c55e;color:#4ade80;flex:1;">E-Mail kopieren</button>
+        <button onclick="markEmailSent()" id="email-mark-btn" class="gen-btn" style="background:linear-gradient(135deg,#7c3aed,#2563eb);margin-top:0;flex:1;padding:12px;">
+          ✓ Gesendet — Nächsten laden
+        </button>
+      </div>
+    </div>
+
+    <div id="email-error" style="display:none;margin-top:12px;padding:10px 14px;background:#2d1515;border:1px solid #7f1d1d;border-radius:8px;color:#fca5a5;font-size:0.85rem;"></div>
+  </div>
+</div>
+
+<!-- ── Follow-Up Tab ─────────────────────────────────────────── -->
+<div id="section-followup" style="display:none;width:100%;max-width:560px;">
+
+  <div class="card" style="margin-bottom:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="output-label" style="color:#a78bfa;margin:0;">Fällig zum Nachfassen</div>
+      <button onclick="loadFollowupsDue()" style="background:#1a1d27;border:1px solid #2a2f42;color:#9ca3af;border-radius:8px;padding:6px 12px;font-size:0.78rem;font-weight:700;cursor:pointer;">Aktualisieren</button>
+    </div>
+    <div style="font-size:0.74rem;color:#6b7a99;margin-top:4px;">Leads, die du vor 3+ Tagen angeschrieben hast, ohne Antwort. Am längsten überfällig zuerst.</div>
+    <div id="fu-due-status" style="margin-top:10px;font-size:0.82rem;color:#6b7a99;">Prüfe…</div>
+    <div id="fu-due-list" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+
+  <div class="card">
+    <div class="section">
+      <label>Gewerk</label>
+      <select id="fu-trade" style="width:100%;background:#12151e;border:1px solid #2e3650;border-radius:8px;color:#e8eaf0;padding:11px 14px;font-size:0.92rem;outline:none;">
+        <option value="roofers">Dachdecker</option>
+        <option value="driveways">Einfahrten / Pflasterer</option>
+        <option value="patio">Terrasse</option>
+        <option value="landscapers">Gärtner</option>
+        <option value="builders">Baumeister</option>
+        <option value="renovation contractors">Sanierung</option>
+        <option value="quotes">Andere / Angebote</option>
+      </select>
+    </div>
+
+    <div class="section">
+      <label>Welches Nachfassen?</label>
+      <div style="display:flex;gap:10px;">
+        <button onclick="selectTouch(1)" id="touch-1" style="flex:1;padding:12px;border-radius:8px;font-weight:700;font-size:0.85rem;cursor:pointer;background:#16a34a;color:#fff;border:none;">Tag 3</button>
+        <button onclick="selectTouch(2)" id="touch-2" style="flex:1;padding:12px;border-radius:8px;font-weight:700;font-size:0.85rem;cursor:pointer;background:#1a1d27;color:#6b7a99;border:1px solid #2a2f42;">Tag 10</button>
+        <button onclick="selectTouch(3)" id="touch-3" style="flex:1;padding:12px;border-radius:8px;font-weight:700;font-size:0.85rem;cursor:pointer;background:#1a1d27;color:#6b7a99;border:1px solid #2a2f42;">Tag 21</button>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <div style="flex:1;text-align:center;font-size:0.72rem;color:#6b7a99;">Neuer Ansatz</div>
+        <div style="flex:1;text-align:center;font-size:0.72rem;color:#6b7a99;">Social Proof</div>
+        <div style="flex:1;text-align:center;font-size:0.72rem;color:#6b7a99;">Abschied</div>
+      </div>
+    </div>
+
+    <button onclick="getFollowup()" class="gen-btn" style="background:linear-gradient(135deg,#7c3aed,#2563eb);margin-top:4px;">Nachfass-Nachricht holen</button>
+
+    <div id="fu-output" style="display:none;margin-top:24px;">
+      <div class="output-label" style="color:#a78bfa;">Nachfass-Nachricht</div>
+      <div id="fu-box" class="result-box" style="margin-top:8px;"></div>
+      <button onclick="copyFollowup()" id="fu-copy-btn" class="copy-btn" style="background:#1e1a3a;border:1px solid #7c3aed;color:#a78bfa;margin-top:12px;">Nachricht kopieren</button>
+    </div>
+  </div>
+</div>
+
+<div class="footer">Groq · Screenshots an Vision-API gesendet</div>
+
+<script>
+  let imageFile = null;
+
+  // Drag & drop
+  const dz = document.getElementById('drop-zone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('over');
+    if (e.dataTransfer.files[0]) setImage(e.dataTransfer.files[0]);
+  });
+  document.getElementById('img-input').addEventListener('change', e => {
+    if (e.target.files[0]) setImage(e.target.files[0]);
+  });
+
+  function setImage(f) {
+    imageFile = f;
+    document.getElementById('fname').textContent = '📎 ' + (f.name || 'eingefügtes Bild');
+  }
+
+  // Ctrl+V anywhere on the page
+  window.addEventListener('paste', e => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) {
+          setImage(file);
+          document.getElementById('fname').textContent = '✓ Screenshot eingefügt — bereit zum Generieren';
+        }
+        break;
+      }
+    }
+  });
+
+  function buildFormData() {
+    const fd = new FormData();
+    const url   = document.getElementById('url-input').value.trim();
+    const notes = document.getElementById('notes-input').value.trim();
+    if (url)       fd.append('url',   url);
+    if (notes)     fd.append('notes', notes);
+    if (imageFile) fd.append('image', imageFile);
+    return fd;
+  }
+
+  // Generate DM
+  document.getElementById('gen-btn').addEventListener('click', async () => {
+    hideError();
+    const btn = document.getElementById('gen-btn');
+    btn.disabled = true;
+    btn.textContent = 'Erfasse & generiere…';
+
+    try {
+      const resp = await fetch('/generate', { method: 'POST', body: buildFormData() });
+      const data = await resp.json();
+      if (!resp.ok || data.error) {
+        showError(data.error || 'Etwas ist schiefgelaufen.');
+      } else {
+        showDM(data);
+        if (data.clipboard) {
+          const btn = document.getElementById('copy-btn');
+          btn.textContent = '✓ Schon in die Zwischenablage kopiert'; btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = 'DM kopieren'; btn.classList.remove('copied'); }, 3000);
+        }
+      }
+    } catch (e) {
+      showError('Netzwerkfehler: ' + e.message);
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'DM generieren';
+  });
+
+  // Generate Voice Note
+  document.getElementById('gen-vn-btn').addEventListener('click', async () => {
+    hideError();
+    const btn = document.getElementById('gen-vn-btn');
+    btn.disabled = true;
+    btn.textContent = 'Erfasse & generiere…';
+
+    try {
+      const resp = await fetch('/generate_voicenote', { method: 'POST', body: buildFormData() });
+      const data = await resp.json();
+      if (!resp.ok || data.error) {
+        showError(data.error || 'Etwas ist schiefgelaufen.');
+      } else {
+        showVN(data.script, data.warning);
+      }
+    } catch (e) {
+      showError('Netzwerkfehler: ' + e.message);
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'WhatsApp-Sprachnachricht-Skript generieren';
+  });
+
+  let dmCandidates = [];
+
+  function showDM(data) {
+    // Accepts the /generate JSON. Prefers the multi-candidate list (data.dms)
+    // and falls back to a single data.dm for older responses.
+    const dms = (data && data.dms && data.dms.length) ? data.dms : [data.dm || data];
+    dmCandidates = dms;
+
+    const chooser = document.getElementById('dm-candidates');
+    chooser.innerHTML = '';
+    if (dms.length > 1) {
+      chooser.style.display = 'flex';
+      dms.forEach((_, i) => {
+        const chip = document.createElement('button');
+        chip.className = 'dm-chip';
+        chip.textContent = 'Variante ' + (i + 1);
+        chip.onclick = () => selectDM(i);
+        chooser.appendChild(chip);
+      });
+    } else {
+      chooser.style.display = 'none';
+    }
+
+    selectDM(0, true);   // option 1 is already on the clipboard from the backend
+    document.getElementById('output').style.display = 'block';
+    showWarning(data && data.warning);
+    document.getElementById('output').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function selectDM(i, fromBackend) {
+    const dm = dmCandidates[i] || '';
+    document.getElementById('dm-box').textContent = dm;
+    document.getElementById('char-count').textContent = dm.length + ' Zeichen';
+    document.querySelectorAll('#dm-candidates .dm-chip').forEach((c, idx) => {
+      c.classList.toggle('active', idx === i);
+    });
+    // Copy the chosen option. Skip on the first auto-render — the backend
+    // already put option 1 on the clipboard.
+    if (!fromBackend) {
+      navigator.clipboard.writeText(dm).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = '✓ Variante ' + (i + 1) + ' kopiert'; btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'DM kopieren'; btn.classList.remove('copied'); }, 2000);
+      }).catch(() => {});
+    }
+  }
+
+  function showVN(script, warning) {
+    document.getElementById('vn-box').textContent = script;
+    document.getElementById('vn-char-count').textContent = script.length + ' Zeichen';
+    document.getElementById('vn-output').style.display = 'block';
+    showWarning(warning);
+    document.getElementById('vn-output').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function showWarning(warning) {
+    const warnEl = document.getElementById('warning');
+    if (warning) { warnEl.textContent = '⚠ ' + warning; warnEl.style.display = 'block'; }
+    else { warnEl.style.display = 'none'; }
+  }
+
+  function copyDM() {
+    const text = document.getElementById('dm-box').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copy-btn');
+      btn.textContent = 'Kopiert!'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'DM kopieren'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  function copyVN() {
+    const text = document.getElementById('vn-box').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copy-vn-btn');
+      btn.textContent = 'Kopiert!'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Skript kopieren'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  function reset() {
+    document.getElementById('output').style.display = 'none';
+    document.getElementById('url-input').value = '';
+    document.getElementById('notes-input').value = '';
+    document.getElementById('fname').textContent = '';
+    document.getElementById('img-input').value = '';
+    imageFile = null;
+    hideError();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function resetVN() {
+    document.getElementById('vn-output').style.display = 'none';
+    hideError();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error');
+    el.textContent = msg; el.style.display = 'block';
+  }
+  function hideError() {
+    document.getElementById('error').style.display = 'none';
+  }
+
+  // ── Tab switching ────────────────────────────────────────────
+  function showTab(tab) {
+    ['manual','auto','email','followup'].forEach(t => {
+      const sec = document.getElementById('section-' + t);
+      const btn = document.getElementById('tab-' + t);
+      if (!sec || !btn) return;
+      const active = tab === t;
+      sec.style.display      = active ? '' : 'none';
+      btn.style.background   = active ? '#16a34a' : '#1a1d27';
+      btn.style.color        = active ? '#fff'    : '#6b7a99';
+      btn.style.border       = active ? 'none'    : '1px solid #2a2f42';
+    });
+    if (tab === 'followup') loadFollowupsDue();
+    if (tab === 'auto')     refreshFollowupBanner();
+  }
+
+  // Lightweight count for the Auto Sender banner — shows how many nudges wait.
+  async function refreshFollowupBanner() {
+    const banner = document.getElementById('auto-followups-banner');
+    if (!banner) return;
+    try {
+      const r = await fetch('/followups_due', { method: 'POST' });
+      const d = await r.json();
+      const count = d.count || 0;
+      if (count > 0) {
+        document.getElementById('auto-followups-count').textContent = count;
+        banner.style.display = 'flex';
+      } else {
+        banner.style.display = 'none';
+      }
+    } catch (e) { /* leave hidden on error */ }
+  }
+
+  // ── Due-for-follow-up worklist ──────────────────────────────────────────
+  async function loadFollowupsDue() {
+    const status = document.getElementById('fu-due-status');
+    const list   = document.getElementById('fu-due-list');
+    status.textContent = 'Prüfe…'; list.innerHTML = '';
+    try {
+      const r = await fetch('/followups_due', { method: 'POST' });
+      const d = await r.json();
+      if (d.error) { status.textContent = d.error; return; }
+      if (!d.count) { status.textContent = 'Gerade niemand fällig — alles erledigt.'; return; }
+      status.textContent = d.count + (d.count === 1 ? ' Lead fällig zum Nachfassen' : ' Leads fällig zum Nachfassen');
+      d.due.forEach(renderDueRow);
+    } catch (e) {
+      status.textContent = 'Konnte nicht laden — öffne einmal den Auto-Sender-Tab, um deine Leads zu laden, dann komm zurück.';
+    }
+  }
+
+  function renderDueRow(l) {
+    const row = document.createElement('div');
+    row.id = 'due-row-' + l.row;
+    row.style.cssText = 'background:#12151e;border:1px solid #2e3650;border-radius:10px;padding:10px 12px;';
+    row.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">' +
+        '<div style="font-weight:700;color:#e8eaf0;font-size:0.92rem;word-break:break-word;">' + (l.name || '(kein Name)') + '</div>' +
+        '<div style="font-size:0.72rem;color:#fbbf24;white-space:nowrap;">' + (l.days == null ? 'überfällig' : l.days + 'T') + ' · Nachfassen #' + l.touch + '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px;">' +
+        '<button onclick="sendFollowup(' + l.row + ', this)" style="flex:1;background:linear-gradient(135deg,#7c3aed,#2563eb);border:none;color:#fff;border-radius:8px;padding:9px;font-size:0.8rem;font-weight:700;cursor:pointer;">Nachricht kopieren + öffnen</button>' +
+        '<button onclick="gotReply(' + l.row + ')" style="background:#1e3a2a;border:1px solid #22c55e;color:#4ade80;border-radius:8px;padding:9px 12px;font-size:0.8rem;font-weight:700;cursor:pointer;white-space:nowrap;">Hat geantwortet</button>' +
+      '</div>';
+    document.getElementById('fu-due-list').appendChild(row);
+  }
+
+  async function sendFollowup(row, btn) {
+    btn.disabled = true; btn.textContent = 'Arbeite…';
+    try {
+      const r = await fetch('/followup_send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row })
+      });
+      const d = await r.json();
+      if (d.error) { btn.disabled = false; btn.textContent = 'Nachricht kopieren + öffnen'; alert(d.error); return; }
+      if (d.url) window.open(d.url, '_blank');
+      dropDueRow(row);
+    } catch (e) { btn.disabled = false; btn.textContent = 'Nachricht kopieren + öffnen'; }
+  }
+
+  async function gotReply(row) {
+    try {
+      await fetch('/mark_replied', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row })
+      });
+      dropDueRow(row);
+    } catch (e) {}
+  }
+
+  function dropDueRow(row) {
+    const el = document.getElementById('due-row-' + row);
+    if (el) el.remove();
+    const n = document.getElementById('fu-due-list').children.length;
+    document.getElementById('fu-due-status').textContent =
+      n ? (n + (n === 1 ? ' Lead fällig zum Nachfassen' : ' Leads fällig zum Nachfassen')) : 'Alles erledigt — gute Arbeit.';
+  }
+
+  // ── Follow-Up ────────────────────────────────────────────────
+  let currentTouch = 1;
+
+  function selectTouch(n) {
+    currentTouch = n;
+    [1,2,3].forEach(i => {
+      const btn = document.getElementById('touch-' + i);
+      btn.style.background = i === n ? '#7c3aed' : '#1a1d27';
+      btn.style.color      = i === n ? '#fff'    : '#6b7a99';
+      btn.style.border     = i === n ? 'none'    : '1px solid #2a2f42';
+    });
+  }
+
+  async function getFollowup() {
+    const trade = document.getElementById('fu-trade').value;
+    const r = await fetch('/followup', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ trade, touch: currentTouch })
+    });
+    const d = await r.json();
+    document.getElementById('fu-box').textContent = d.message;
+    document.getElementById('fu-output').style.display = 'block';
+  }
+
+  function copyFollowup() {
+    const text = document.getElementById('fu-box').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('fu-copy-btn');
+      btn.textContent = 'Kopiert!'; btn.style.background = '#7c3aed'; btn.style.color = '#fff';
+      setTimeout(() => { btn.textContent = 'Nachricht kopieren'; btn.style.background = '#1e1a3a'; btn.style.color = '#a78bfa'; }, 2000);
+    });
+  }
+
+  // ── Auto Sender ──────────────────────────────────────────────
+  let currentLead = null;
+
+  async function loadExcel() {
+    const path = document.getElementById('excel-path').value.trim();
+    const status = document.getElementById('auto-load-status');
+    status.textContent = 'Lade...';
+    try {
+      const r = await fetch('/auto_load', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ path })
+      });
+      const d = await r.json();
+      if (d.error) { status.style.color = '#fca5a5'; status.textContent = d.error; return; }
+      status.style.color = '#4ade80';
+      status.textContent = `Geladen. ${d.sent} gesendet, ${d.total - d.sent} verbleibend.`;
+      currentLead = d.lead;
+      document.getElementById('auto-company').textContent = d.lead.name || d.lead.url;
+      document.getElementById('auto-url').textContent = d.lead.url;
+      document.getElementById('auto-progress').textContent = `${d.sent} / ${d.total} erledigt`;
+      document.getElementById('auto-main').style.display = 'block';
+      document.getElementById('auto-dm-section').style.display = 'none';
+      refreshFollowupBanner();
+    } catch(e) {
+      status.style.color = '#fca5a5'; status.textContent = 'Fehler: ' + e.message;
+    }
+  }
+
+  async function nextLead() {
+    const nextBtn = document.getElementById('auto-next-btn');
+    const markBtn = document.getElementById('auto-mark-btn');
+    const errEl   = document.getElementById('auto-error');
+    nextBtn.disabled = true;
+    markBtn.disabled = true;
+    errEl.style.display = 'none';
+    document.getElementById('auto-dm-section').style.display = 'none';
+
+    // Animated loading text so the user knows it's working
+    const loadingMsgs = [
+      'Öffne Profil...',
+      'Lade Seite (kann 30–60s dauern)...',
+      'Mache Screenshot...',
+      'Generiere DM...',
+      'Fast fertig...',
+    ];
+    let msgIdx = 0;
+    nextBtn.textContent = loadingMsgs[0];
+    const msgTimer = setInterval(() => {
+      msgIdx = Math.min(msgIdx + 1, loadingMsgs.length - 1);
+      nextBtn.textContent = loadingMsgs[msgIdx];
+    }, 12000);
+
+    const controller = new AbortController();
+    const hardTimeout = setTimeout(() => controller.abort(), 120000); // 2-min hard cap
+
+    try {
+      const r = await fetch('/auto_next', { method: 'POST', signal: controller.signal });
+      const d = await r.json();
+      if (d.error) {
+        errEl.textContent = d.error; errEl.style.display = 'block';
+      } else {
+        currentLead = d.lead;
+        document.getElementById('auto-company').textContent = d.lead.name || d.lead.url;
+        document.getElementById('auto-url').textContent = d.lead.url;
+        document.getElementById('auto-dm-box').textContent = d.dm;
+        document.getElementById('auto-sent-today').textContent = d.sent_today;
+        let note = '';
+        if (d.clipboard && d.msg_opened) {
+          note = '✓ In die Zwischenablage kopiert. Chat geöffnet — klick ins Nachrichtenfeld und Strg+V, dann Enter.';
+        } else if (d.clipboard) {
+          note = '✓ In die Zwischenablage kopiert. Öffne den Chat, klick ins Nachrichtenfeld, Strg+V, dann Enter.';
+        } else {
+          note = 'Kopier die DM oben und füg sie manuell ins Nachrichtenfeld ein.';
+        }
+        document.getElementById('auto-typed-note').textContent = note;
+        document.getElementById('auto-dm-section').style.display = 'block';
+      }
+    } catch(e) {
+      const msg = e.name === 'AbortError' ? 'Zeitüberschreitung — Chrome ist evtl. langsam. Probier nochmal.' : 'Fehler: ' + e.message;
+      errEl.textContent = msg; errEl.style.display = 'block';
+    } finally {
+      clearInterval(msgTimer);
+      clearTimeout(hardTimeout);
+    }
+    nextBtn.disabled = false; nextBtn.textContent = '▶ Profil öffnen & DM generieren';
+    markBtn.disabled = false; markBtn.textContent = '✓ Gesendet — Nächsten laden';
+  }
+
+  async function skipLead() {
+    const skipBtn = document.getElementById('auto-skip-btn');
+    const errEl   = document.getElementById('auto-error');
+    skipBtn.disabled = true; skipBtn.textContent = 'Überspringe...';
+    errEl.style.display = 'none';
+    try {
+      const r = await fetch('/auto_skip', { method: 'POST' });
+      const d = await r.json();
+      if (d.error) {
+        errEl.textContent = d.error; errEl.style.display = 'block';
+      } else {
+        currentLead = d.lead;
+        document.getElementById('auto-company').textContent = d.lead.name || d.lead.url;
+        document.getElementById('auto-url').textContent = d.lead.url;
+        document.getElementById('auto-progress').textContent = `${d.sent} / ${d.total} erledigt`;
+        document.getElementById('auto-dm-section').style.display = 'none';
+      }
+    } catch(e) {
+      errEl.textContent = 'Fehler: ' + e.message; errEl.style.display = 'block';
+    }
+    skipBtn.disabled = false; skipBtn.textContent = '⟶ Diesen Lead überspringen';
+  }
+
+  async function markSent() {
+    const btn = document.getElementById('auto-mark-btn');
+    const errEl = document.getElementById('auto-error');
+    errEl.style.display = 'none';
+    btn.disabled = true; btn.textContent = 'Markiere als gesendet...';
+    try {
+      const r = await fetch('/auto_mark_sent', { method: 'POST' });
+      const d = await r.json();
+      if (d.ok) {
+        document.getElementById('auto-sent-today').textContent = d.sent_today;
+        document.getElementById('auto-progress').textContent = `${d.sent} / ${d.total} erledigt`;
+        // Immediately load the next lead — no extra click needed
+        await nextLead();
+        refreshFollowupBanner();
+      } else {
+        // Save failed (e.g. the Excel file is open in Excel / still syncing).
+        // Show why and re-enable the button so you can close Excel and retry.
+        errEl.textContent = d.error || 'Konnte nicht als gesendet markieren — probier nochmal.';
+        errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = '✓ Gesendet — Nächsten laden';
+      }
+    } catch(e) {
+      errEl.textContent = 'Fehler: ' + e.message;
+      errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = '✓ Gesendet — Nächsten laden';
+    }
+  }
+
+  // ── Owner Emails section (separate from Auto Sender) ─────────────────────
+  let currentEmailLead = null;
+
+  async function loadEmailExcel() {
+    const path = document.getElementById('email-path').value.trim();
+    const status = document.getElementById('email-load-status');
+    status.style.color = '#6b7a99'; status.textContent = 'Lade...';
+    try {
+      const r = await fetch('/email_load', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ path })
+      });
+      const d = await r.json();
+      if (d.error) { status.style.color = '#fca5a5'; status.textContent = d.error; return; }
+      status.style.color = '#4ade80';
+      status.textContent = `Geladen. ${d.sent} gesendet, ${d.total - d.sent} verbleibend.`;
+      currentEmailLead = d.lead;
+      document.getElementById('email-company').textContent = d.lead.name || d.lead.email;
+      document.getElementById('email-to').textContent = d.lead.email;
+      document.getElementById('email-progress').textContent = `${d.sent} / ${d.total} erledigt`;
+      document.getElementById('email-main').style.display = 'block';
+      document.getElementById('email-out-section').style.display = 'none';
+    } catch(e) {
+      status.style.color = '#fca5a5'; status.textContent = 'Fehler: ' + e.message;
+    }
+  }
+
+  async function nextEmailLead() {
+    const nextBtn = document.getElementById('email-next-btn');
+    const markBtn = document.getElementById('email-mark-btn');
+    const errEl   = document.getElementById('email-error');
+    nextBtn.disabled = true; markBtn.disabled = true;
+    errEl.style.display = 'none';
+    document.getElementById('email-out-section').style.display = 'none';
+
+    const loadingMsgs = ['Öffne Seite...','Lade Seite (kann 30-60s dauern)...','Lese die Seite...','Schreibe die E-Mail...','Fast fertig...'];
+    let i = 0; nextBtn.textContent = loadingMsgs[0];
+    const timer = setInterval(() => { i = Math.min(i+1, loadingMsgs.length-1); nextBtn.textContent = loadingMsgs[i]; }, 12000);
+    const controller = new AbortController();
+    const hardTimeout = setTimeout(() => controller.abort(), 120000);
+    try {
+      const r = await fetch('/email_next', { method: 'POST', signal: controller.signal });
+      const d = await r.json();
+      if (d.error) { errEl.textContent = d.error; errEl.style.display = 'block'; }
+      else {
+        currentEmailLead = d.lead;
+        document.getElementById('email-company').textContent = d.lead.name || d.lead.email;
+        document.getElementById('email-to').textContent = d.email || d.lead.email;
+        document.getElementById('email-subject').textContent = d.subject || '';
+        document.getElementById('email-body-box').textContent = d.body;
+        document.getElementById('email-sent-today').textContent = d.sent_today;
+        document.getElementById('email-note').textContent =
+          'Gmail wurde automatisch geöffnet, alles ausgefüllt — nur prüfen und senden. ("In Gmail öffnen" öffnet es bei Bedarf erneut; "E-Mail kopieren" legt Adresse, Betreff und Text in die Zwischenablage.)';
+        document.getElementById('email-out-section').style.display = 'block';
+      }
+    } catch(e) {
+      errEl.textContent = e.name === 'AbortError' ? 'Zeitüberschreitung — Chrome ist evtl. langsam. Probier nochmal.' : 'Fehler: ' + e.message;
+      errEl.style.display = 'block';
+    } finally { clearInterval(timer); clearTimeout(hardTimeout); }
+    nextBtn.disabled = false; nextBtn.textContent = '▶ Seite scannen & E-Mail schreiben';
+    markBtn.disabled = false; markBtn.textContent = '✓ Gesendet — Nächsten laden';
+  }
+
+  async function skipEmailLead() {
+    const skipBtn = document.getElementById('email-skip-btn');
+    const errEl   = document.getElementById('email-error');
+    skipBtn.disabled = true; skipBtn.textContent = 'Überspringe...';
+    errEl.style.display = 'none';
+    try {
+      const r = await fetch('/email_skip', { method: 'POST' });
+      const d = await r.json();
+      if (d.error) { errEl.textContent = d.error; errEl.style.display = 'block'; }
+      else {
+        currentEmailLead = d.lead;
+        document.getElementById('email-company').textContent = d.lead.name || d.lead.email;
+        document.getElementById('email-to').textContent = d.lead.email;
+        document.getElementById('email-progress').textContent = `${d.sent} / ${d.total} erledigt`;
+        document.getElementById('email-out-section').style.display = 'none';
+      }
+    } catch(e) { errEl.textContent = 'Fehler: ' + e.message; errEl.style.display = 'block'; }
+    skipBtn.disabled = false; skipBtn.textContent = '⟶ Diesen Lead überspringen';
+  }
+
+  async function markEmailSent() {
+    const btn = document.getElementById('email-mark-btn');
+    const errEl = document.getElementById('email-error');
+    errEl.style.display = 'none';
+    btn.disabled = true; btn.textContent = 'Markiere als gesendet...';
+    try {
+      const r = await fetch('/email_mark_sent', { method: 'POST' });
+      const d = await r.json();
+      if (d.ok) {
+        document.getElementById('email-sent-today').textContent = d.sent_today;
+        document.getElementById('email-progress').textContent = `${d.sent} / ${d.total} erledigt`;
+        await nextEmailLead();
+      } else {
+        errEl.textContent = d.error || 'Konnte nicht als gesendet markieren — probier nochmal.';
+        errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = '✓ Gesendet — Nächsten laden';
+      }
+    } catch(e) {
+      errEl.textContent = 'Fehler: ' + e.message; errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = '✓ Gesendet — Nächsten laden';
+    }
+  }
+
+  function openInGmail() {
+    const to      = document.getElementById('email-to').textContent.trim();
+    const subject = document.getElementById('email-subject').textContent.trim();
+    const body    = document.getElementById('email-body-box').textContent;
+    const url = 'https://mail.google.com/mail/?view=cm&fs=1'
+      + '&to=' + encodeURIComponent(to)
+      + '&su=' + encodeURIComponent(subject)
+      + '&body=' + encodeURIComponent(body);
+    window.open(url, '_blank');
+  }
+
+  function copyEmailBody() {
+    const to      = document.getElementById('email-to').textContent.trim();
+    const subject = document.getElementById('email-subject').textContent.trim();
+    const body    = document.getElementById('email-body-box').textContent;
+    const text = `${to}\n${subject}\n\n${body}`;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('email-copy-btn');
+      btn.textContent = 'Kopiert!'; btn.style.background = '#16a34a'; btn.style.color = '#fff';
+      setTimeout(() => { btn.textContent = 'E-Mail kopieren'; btn.style.background = '#1e3a2a'; btn.style.color = '#4ade80'; }, 2000);
+    });
+  }
+
+  function copyEmailSubject() {
+    const text = document.getElementById('email-subject').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('email-subj-btn');
+      const prev = btn.textContent; btn.textContent = 'Kopiert!';
+      setTimeout(() => { btn.textContent = prev; }, 1500);
+    });
+  }
+
+  function copyAutoDM() {
+    const text = document.getElementById('auto-dm-box').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('auto-copy-btn');
+      btn.textContent = 'Kopiert!'; btn.style.background = '#16a34a'; btn.style.color = '#fff';
+      setTimeout(() => { btn.textContent = 'DM kopieren'; btn.style.background = '#1e3a2a'; btn.style.color = '#4ade80'; }, 2000);
+    });
+  }
+
+  // ── A/B message variant toggle ──────────────────────────────────────────
+  let currentVariant = '{{ variant }}';
+  function renderVariant() {
+    const btn  = document.getElementById('variant-toggle');
+    const desc = document.getElementById('variant-desc');
+    if (!btn) return;
+    if (currentVariant === 'stripped') {
+      btn.textContent = 'Kurz (B)';
+      btn.style.background = '#7c3aed'; btn.style.color = '#fff'; btn.style.border = 'none';
+      desc.textContent = 'Kurzer Einzeiler, beginnt mit dem Muster';
+    } else {
+      btn.textContent = 'Voll (aktuell)';
+      btn.style.background = '#1a1d27'; btn.style.color = '#9ca3af'; btn.style.border = '1px solid #2a2f42';
+      desc.textContent = 'Personalisierter Einstieg + vollständiger Pitch';
+    }
+  }
+  async function toggleVariant() {
+    const btn = document.getElementById('variant-toggle');
+    btn.disabled = true;
+    try {
+      const r = await fetch('/toggle_variant', { method: 'POST' });
+      const d = await r.json();
+      currentVariant = d.variant;
+      renderVariant();
+    } catch (e) { /* leave as-is on error */ }
+    btn.disabled = false;
+  }
+
+  // Auto-load the Excel file on page open
+  window.addEventListener('DOMContentLoaded', () => { renderVariant(); loadExcel(); });
+</script>
+</body>
+</html>

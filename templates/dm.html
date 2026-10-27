@@ -169,8 +169,11 @@
 <div style="display:flex;gap:10px;margin-bottom:24px;">
   <button onclick="showTab('manual')"   id="tab-manual"   style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#16a34a;color:#fff;border:none;">Manual</button>
   <button onclick="showTab('auto')"     id="tab-auto"     style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#1a1d27;color:#6b7a99;border:1px solid #2a2f42;">Auto Sender</button>
+  {% if mech_enabled %}<button onclick="showTab('mech')"      id="tab-mech"      style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#1a1d27;color:#6b7a99;border:1px solid #2a2f42;">Szerelők</button>{% endif %}
+  <button onclick="showTab('fbgroup')"  id="tab-fbgroup" style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#1a1d27;color:#6b7a99;border:1px solid #2a2f42;">FB Group Sender</button>
   <button onclick="showTab('email')"    id="tab-email"    style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#1a1d27;color:#6b7a99;border:1px solid #2a2f42;">Owner Emails</button>
   <button onclick="showTab('followup')" id="tab-followup" style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#1a1d27;color:#6b7a99;border:1px solid #2a2f42;">Follow-Up</button>
+  <button onclick="showTab('replies')"  id="tab-replies"  style="flex:1;padding:10px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;background:#1a1d27;color:#6b7a99;border:1px solid #2a2f42;">Replies</button>
 </div>
 
 <div id="section-manual">
@@ -261,6 +264,10 @@
   <div class="card" style="margin-bottom:16px;">
     <label>Excel file path <span class="optional-tag">(leave blank to auto-detect)</span></label>
     <input type="text" id="excel-path" placeholder="C:\Users\you\leads.xlsx" value="{{ default_excel or 'C:\\Users\\pirin\\OneDrive\\Asztali gép\\uk trades new leads.xlsx' }}"/>
+    <div style="display:flex;gap:10px;margin-top:12px;">
+      <button onclick="loadMarket('US')" class="gen-btn" style="background:#1e2a3a;border:1px solid #2563eb;color:#60a5fa;margin-top:0;flex:1;">🇺🇸 US leads</button>
+      <button onclick="loadMarket('UK')" class="gen-btn" style="background:#1e2a3a;border:1px solid #2563eb;color:#60a5fa;margin-top:0;flex:1;">🇬🇧 UK leads</button>
+    </div>
     <button onclick="loadExcel()" class="gen-btn" style="background:linear-gradient(135deg,#1e3a5f,#0891b2);margin-top:12px;">Load Leads</button>
     <div id="auto-load-status" style="margin-top:10px;font-size:0.85rem;color:#6b7a99;"></div>
   </div>
@@ -297,6 +304,7 @@
       <div id="auto-typed-note" style="margin-top:8px;font-size:0.82rem;color:#fbbf24;"></div>
       <div style="display:flex;gap:10px;margin-top:12px;">
         <button onclick="copyAutoDM()" id="auto-copy-btn" class="copy-btn" style="background:#1e3a2a;border:1px solid #22c55e;color:#4ade80;flex:1;">Copy DM</button>
+        <button onclick="copyAutoScreenshot()" id="auto-copy-shot-btn" class="copy-btn" style="background:#1e2a3a;border:1px solid #2563eb;color:#60a5fa;flex:1;display:none;">Copy picture</button>
         <button onclick="markSent()" id="auto-mark-btn" class="gen-btn" style="background:linear-gradient(135deg,#7c3aed,#2563eb);margin-top:0;flex:1;padding:12px;">
           ✓ Sent — Load Next
         </button>
@@ -304,6 +312,158 @@
     </div>
 
     <div id="auto-error" style="display:none;margin-top:12px;padding:10px 14px;background:#2d1515;border:1px solid #7f1d1d;border-radius:8px;color:#fca5a5;font-size:0.85rem;"></div>
+
+  </div>
+</div>
+
+<!-- ── FB Group Sender ──────────────────────────────────────────
+     Leads collected by hand from Facebook groups, where you already wrote
+     the opener line yourself into a "Personalized Line" column. No AI, no
+     screenshot — this just opens the profile and wraps your line in the
+     usual greeting + pitch. -->
+{% if mech_enabled %}
+<!-- ── Autószerelő Tab (own sheet, own message) ─────────────── -->
+<div id="section-mech" style="display:none;width:100%;max-width:560px;">
+
+  <div class="card" style="margin-bottom:16px;">
+    <label>Excel file path <span class="optional-tag">(leave blank to auto-detect)</span></label>
+    <input type="text" id="mech-path" placeholder="C:\Users\you\autoszerelo_leads.xlsx" value="{{ mech_excel or '' }}"/>
+    <div style="font-size:0.76rem;color:#6b7a99;margin-top:8px;line-height:1.5;">
+      Separate from Auto Sender: its own sheet, its own progress, its own message.
+      Needs a <strong style="color:#4ade80;">Facebook URL</strong> column; the
+      Contacted / Sent Date columns are added if missing.
+    </div>
+    <button onclick="loadMechExcel()" class="gen-btn" style="background:linear-gradient(135deg,#9a3412,#ea580c);margin-top:12px;">Load Autószerelő Leads</button>
+    <div id="mech-load-status" style="margin-top:10px;font-size:0.85rem;color:#6b7a99;"></div>
+  </div>
+
+  <div class="card" id="mech-main" style="display:none;">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <div>
+        <div style="font-size:0.75rem;color:#6b7a99;text-transform:uppercase;letter-spacing:.05em;">Next Lead</div>
+        <div id="mech-company" style="font-size:1.1rem;font-weight:700;color:#e8eaf0;margin-top:3px;"></div>
+        <div id="mech-url" style="font-size:0.78rem;color:#4ade80;margin-top:2px;word-break:break-all;"></div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:0.75rem;color:#6b7a99;">Sent today</div>
+        <div id="mech-sent-today" style="font-size:1.4rem;font-weight:700;color:#fb923c;">0</div>
+        <div id="mech-progress" style="font-size:0.75rem;color:#6b7a99;"></div>
+      </div>
+    </div>
+
+    <div style="font-size:0.78rem;color:#6b7a99;margin-bottom:10px;line-height:1.5;">
+      Click below → app opens the profile, builds the message &amp;
+      <strong style="color:#4ade80;">copies it to clipboard</strong>, opens the chat.<br>
+      You just click in the message box and press <strong style="color:#22d3ee;">Ctrl+V</strong>, then Enter to send.
+    </div>
+    <button onclick="nextMechLead()" id="mech-next-btn" class="gen-btn" style="background:linear-gradient(135deg,#ea580c,#dc2626);">
+      ▶ Open Profile &amp; Build Message
+    </button>
+    <button onclick="skipMechLead()" id="mech-skip-btn" class="gen-btn" style="background:#1a1d27;border:1px solid #4b5563;color:#9ca3af;margin-top:8px;font-size:0.85rem;padding:10px;">
+      ⟶ Skip this lead
+    </button>
+
+    <div id="mech-dm-section" style="display:none;margin-top:20px;">
+      <div class="output-label" style="color:#fb923c;">Generated message</div>
+      <div id="mech-dm-box" class="result-box" style="margin-top:8px;"></div>
+      <div id="mech-typed-note" style="margin-top:8px;font-size:0.82rem;color:#fbbf24;"></div>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button onclick="copyMechDM()" id="mech-copy-btn" class="copy-btn" style="background:#3a2a1e;border:1px solid #ea580c;color:#fb923c;flex:1;">Copy message</button>
+        <button onclick="markMechSent()" id="mech-mark-btn" class="gen-btn" style="background:linear-gradient(135deg,#7c3aed,#2563eb);margin-top:0;flex:1;padding:12px;">
+          ✓ Sent — Load Next
+        </button>
+      </div>
+    </div>
+
+    <div id="mech-error" style="display:none;margin-top:12px;padding:10px 14px;background:#2d1515;border:1px solid #7f1d1d;border-radius:8px;color:#fca5a5;font-size:0.85rem;"></div>
+
+  </div>
+
+  <!-- Follow-ups for THIS sheet (the Follow-Up tab only ever reads Auto Sender's) -->
+  <div class="card" id="mech-fu-card" style="display:none;margin-top:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:0.9rem;font-weight:700;color:#e8eaf0;">
+        Utánkövetés <span id="mech-fu-count" style="color:#fb923c;">0</span>
+      </div>
+      <button onclick="loadMechFollowups()" style="background:#1a1d27;border:1px solid #2a2f42;color:#6b7a99;border-radius:8px;padding:7px 12px;font-size:0.78rem;font-weight:700;cursor:pointer;">Frissítés</button>
+    </div>
+    <div style="font-size:0.74rem;color:#6b7a99;margin-top:4px;">3 / 7 / 11 nap, legfeljebb 3 üzenet. Aki válaszolt, kiesik.</div>
+    <div id="mech-fu-status" style="font-size:0.82rem;color:#6b7a99;margin-top:8px;"></div>
+    <div id="mech-fu-list"></div>
+  </div>
+
+  <!-- Reply logging: without it, follow-ups keep nudging people who answered -->
+  <div class="card" id="mech-rep-card" style="display:none;margin-top:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:0.9rem;font-weight:700;color:#e8eaf0;">
+        Válaszok <span id="mech-rep-count" style="color:#22d3ee;">0</span>
+      </div>
+      <button onclick="loadMechReplies()" style="background:#1a1d27;border:1px solid #2a2f42;color:#6b7a99;border-radius:8px;padding:7px 12px;font-size:0.78rem;font-weight:700;cursor:pointer;">Frissítés</button>
+    </div>
+    <div id="mech-rep-stats" style="font-size:0.74rem;color:#6b7a99;margin-top:4px;"></div>
+    <div id="mech-rep-status" style="font-size:0.82rem;color:#6b7a99;margin-top:8px;"></div>
+    <div id="mech-rep-list"></div>
+  </div>
+</div>
+{% endif %}
+
+<div id="section-fbgroup" style="display:none;width:100%;max-width:560px;">
+
+  <div class="card" style="margin-bottom:16px;">
+    <label>Excel file path <span class="optional-tag">(leave blank to auto-detect)</span></label>
+    <input type="text" id="fb-path" placeholder="C:\Users\you\fb_group_leads.xlsx" value=""/>
+    <div style="font-size:0.76rem;color:#6b7a99;margin-top:8px;line-height:1.5;">
+      Sheet needs a <strong style="color:#4ade80;">Facebook URL</strong> and a
+      <strong style="color:#4ade80;">Personalized Line</strong> column — one row per lead,
+      the line already written in.
+    </div>
+    <button onclick="loadFbExcel()" class="gen-btn" style="background:linear-gradient(135deg,#1e3a5f,#0891b2);margin-top:12px;">Load FB Group Leads</button>
+    <div id="fb-load-status" style="margin-top:10px;font-size:0.85rem;color:#6b7a99;"></div>
+  </div>
+
+  <div class="card" id="fb-main" style="display:none;">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <div>
+        <div style="font-size:0.75rem;color:#6b7a99;text-transform:uppercase;letter-spacing:.05em;">Next Lead</div>
+        <div id="fb-company" style="font-size:1.1rem;font-weight:700;color:#e8eaf0;margin-top:3px;"></div>
+        <div id="fb-url" style="font-size:0.78rem;color:#4ade80;margin-top:2px;word-break:break-all;"></div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:0.75rem;color:#6b7a99;">Sent today</div>
+        <div id="fb-sent-today" style="font-size:1.4rem;font-weight:700;color:#22d3ee;">0</div>
+        <div id="fb-progress" style="font-size:0.75rem;color:#6b7a99;"></div>
+      </div>
+    </div>
+
+    <div id="fb-line-preview" style="font-size:0.82rem;color:#a78bfa;margin-bottom:10px;line-height:1.5;background:#12151e;border:1px solid #2e3650;border-radius:8px;padding:10px 12px;"></div>
+
+    <div style="font-size:0.78rem;color:#6b7a99;margin-bottom:10px;line-height:1.5;">
+      Click below → app opens the profile, drops your line into the pitch &amp;
+      <strong style="color:#4ade80;">copies the DM to clipboard</strong>, opens the chat.<br>
+      You just click in the message box and press <strong style="color:#22d3ee;">Ctrl+V</strong>, then Enter to send.
+    </div>
+    <button onclick="nextFbLead()" id="fb-next-btn" class="gen-btn" style="background:linear-gradient(135deg,#16a34a,#0891b2);">
+      ▶ Open Profile &amp; Build DM
+    </button>
+    <button onclick="skipFbLead()" id="fb-skip-btn" class="gen-btn" style="background:#1a1d27;border:1px solid #4b5563;color:#9ca3af;margin-top:8px;font-size:0.85rem;padding:10px;">
+      ⟶ Skip this lead
+    </button>
+
+    <div id="fb-dm-section" style="display:none;margin-top:20px;">
+      <div class="output-label" style="color:#4ade80;">Generated DM</div>
+      <div id="fb-dm-box" class="result-box" style="margin-top:8px;"></div>
+      <div id="fb-typed-note" style="margin-top:8px;font-size:0.82rem;color:#fbbf24;"></div>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button onclick="copyFbDM()" id="fb-copy-btn" class="copy-btn" style="background:#1e3a2a;border:1px solid #22c55e;color:#4ade80;flex:1;">Copy DM</button>
+        <button onclick="markFbSent()" id="fb-mark-btn" class="gen-btn" style="background:linear-gradient(135deg,#7c3aed,#2563eb);margin-top:0;flex:1;padding:12px;">
+          ✓ Sent — Load Next
+        </button>
+      </div>
+    </div>
+
+    <div id="fb-error" style="display:none;margin-top:12px;padding:10px 14px;background:#2d1515;border:1px solid #7f1d1d;border-radius:8px;color:#fca5a5;font-size:0.85rem;"></div>
 
   </div>
 </div>
@@ -331,7 +491,7 @@
     </div>
 
     <div style="font-size:0.82rem;color:#6b7a99;margin-top:14px;line-height:1.5;">
-      Click below → app opens their Facebook page, writes the email &amp; <strong style="color:#4ade80;">copies the body to your clipboard</strong>. Then paste into Gmail.
+      Click below → app opens their Facebook page, writes the email &amp; <strong style="color:#4ade80;">opens Gmail with everything filled in</strong>. Just review and hit Send.
     </div>
 
     <button onclick="nextEmailLead()" id="email-next-btn" class="gen-btn" style="background:linear-gradient(135deg,#16a34a,#0891b2);margin-top:14px;">
@@ -361,6 +521,42 @@
     </div>
 
     <div id="email-error" style="display:none;margin-top:12px;padding:10px 14px;background:#2d1515;border:1px solid #7f1d1d;border-radius:8px;color:#fca5a5;font-size:0.85rem;"></div>
+  </div>
+</div>
+
+<!-- ── Replies Tab ───────────────────────────────────────────────
+     The measurement screen. Every lead that was sent and has no answer
+     logged yet, newest first — no due-date filter, unlike Follow-Up. One
+     click each: Válaszolt / Nem. The stats at the top are the point of
+     opening it. -->
+<div id="section-replies" style="display:none;width:100%;max-width:560px;">
+
+  <div class="card" style="margin-bottom:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div class="output-label" style="color:#22d3ee;margin:0;">Reply rate</div>
+      <button onclick="loadReplies()" style="background:#1a1d27;border:1px solid #2a2f42;color:#9ca3af;border-radius:8px;padding:6px 12px;font-size:0.78rem;font-weight:700;cursor:pointer;">Refresh</button>
+    </div>
+    <div style="display:flex;gap:10px;text-align:center;">
+      <div style="flex:1;background:#12151e;border:1px solid #2e3650;border-radius:10px;padding:12px 8px;">
+        <div id="rep-rate" style="font-size:1.5rem;font-weight:700;color:#4ade80;">—</div>
+        <div style="font-size:0.7rem;color:#6b7a99;text-transform:uppercase;letter-spacing:.04em;">reply rate</div>
+      </div>
+      <div style="flex:1;background:#12151e;border:1px solid #2e3650;border-radius:10px;padding:12px 8px;">
+        <div id="rep-replied" style="font-size:1.5rem;font-weight:700;color:#22d3ee;">0</div>
+        <div style="font-size:0.7rem;color:#6b7a99;text-transform:uppercase;letter-spacing:.04em;">replies</div>
+      </div>
+      <div style="flex:1;background:#12151e;border:1px solid #2e3650;border-radius:10px;padding:12px 8px;">
+        <div id="rep-sent" style="font-size:1.5rem;font-weight:700;color:#e8eaf0;">0</div>
+        <div style="font-size:0.7rem;color:#6b7a99;text-transform:uppercase;letter-spacing:.04em;">sent</div>
+      </div>
+    </div>
+    <div id="rep-note" style="margin-top:12px;font-size:0.78rem;color:#6b7a99;line-height:1.5;"></div>
+  </div>
+
+  <div class="card">
+    <div class="output-label" style="color:#a78bfa;margin:0 0 4px;">Not logged yet</div>
+    <div id="rep-status" style="font-size:0.85rem;color:#6b7a99;margin-bottom:12px;">Loading…</div>
+    <div id="rep-list" style="display:flex;flex-direction:column;gap:8px;"></div>
   </div>
 </div>
 
@@ -621,7 +817,7 @@
 
   // ── Tab switching ────────────────────────────────────────────
   function showTab(tab) {
-    ['manual','auto','email','followup'].forEach(t => {
+    ['manual','auto','mech','fbgroup','email','followup','replies'].forEach(t => {
       const sec = document.getElementById('section-' + t);
       const btn = document.getElementById('tab-' + t);
       if (!sec || !btn) return;
@@ -633,6 +829,68 @@
     });
     if (tab === 'followup') loadFollowupsDue();
     if (tab === 'auto')     refreshFollowupBanner();
+    if (tab === 'replies')  loadReplies();
+  }
+
+  // ── Replies sweep ────────────────────────────────────────────
+  async function loadReplies() {
+    const status = document.getElementById('rep-status');
+    const list   = document.getElementById('rep-list');
+    status.textContent = 'Loading…'; list.innerHTML = '';
+    try {
+      const r = await fetch('/replies_pending', { method: 'POST' });
+      const d = await r.json();
+      if (d.error) { status.textContent = d.error; return; }
+
+      document.getElementById('rep-rate').textContent    = d.rate === null ? '—' : d.rate + '%';
+      document.getElementById('rep-replied').textContent = d.replied;
+      document.getElementById('rep-sent').textContent    = d.sent;
+      document.getElementById('rep-note').textContent    = d.logged
+        ? `${d.logged} of ${d.sent} sends logged. Rate is out of the logged ones, so it stays honest while you catch up.`
+        : `Nothing logged yet — the rate appears once you mark the first one.`;
+
+      if (!d.count) { status.textContent = 'All caught up. Every send has an answer logged.'; return; }
+      status.textContent = d.count + (d.count === 1 ? ' send with no answer logged' : ' sends with no answer logged');
+      d.pending.forEach(renderReplyRow);
+    } catch (e) {
+      status.textContent = 'Could not load — open the Auto Sender tab once to load your leads, then come back.';
+    }
+  }
+
+  function renderReplyRow(l) {
+    const row = document.createElement('div');
+    row.id = 'rep-row-' + l.row;
+    row.style.cssText = 'background:#12151e;border:1px solid #2e3650;border-radius:10px;padding:10px 12px;';
+    const age = l.days === null ? 'no date' : (l.days === 0 ? 'today' : l.days + 'd ago');
+    row.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">' +
+        '<div style="font-weight:700;color:#e8eaf0;font-size:0.92rem;word-break:break-word;">' + (l.name || '(no name)') + '</div>' +
+        '<div style="font-size:0.72rem;color:#6b7a99;white-space:nowrap;">' + age + '</div>' +
+      '</div>' +
+      (l.niche ? '<div style="font-size:0.72rem;color:#6b7a99;margin-top:2px;">' + l.niche + '</div>' : '') +
+      '<div style="display:flex;gap:8px;margin-top:8px;">' +
+        '<button onclick="logReply(' + l.row + ',true)"  style="flex:1;background:#1e3a2a;border:1px solid #22c55e;color:#4ade80;border-radius:8px;padding:9px;font-size:0.8rem;font-weight:700;cursor:pointer;">Válaszolt</button>' +
+        '<button onclick="logReply(' + l.row + ',false)" style="flex:1;background:#1a1d27;border:1px solid #4b5563;color:#9ca3af;border-radius:8px;padding:9px;font-size:0.8rem;font-weight:700;cursor:pointer;">Nem</button>' +
+        '<a href="' + l.url + '" target="_blank" style="background:#1a2332;border:1px solid #2563eb;color:#60a5fa;border-radius:8px;padding:9px 12px;font-size:0.8rem;font-weight:700;text-decoration:none;white-space:nowrap;">Chat</a>' +
+      '</div>';
+    document.getElementById('rep-list').appendChild(row);
+  }
+
+  async function logReply(row, replied) {
+    const el = document.getElementById('rep-row-' + row);
+    if (el) el.style.opacity = '0.4';
+    try {
+      const r = await fetch('/mark_reply', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row, replied })
+      });
+      const d = await r.json();
+      if (d.error) { if (el) el.style.opacity = '1'; alert(d.error); return; }
+      if (el) el.remove();
+      // Re-pull so the counters move immediately — seeing the rate tick is
+      // the only reason this screen gets opened twice.
+      loadReplies();
+    } catch (e) { if (el) el.style.opacity = '1'; }
   }
 
   // Lightweight count for the Auto Sender banner — shows how many nudges wait.
@@ -676,7 +934,7 @@
     row.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">' +
         '<div style="font-weight:700;color:#e8eaf0;font-size:0.92rem;word-break:break-word;">' + (l.name || '(no name)') + '</div>' +
-        '<div style="font-size:0.72rem;color:#fbbf24;white-space:nowrap;">' + l.days + 'd · nudge #' + l.touch + '</div>' +
+        '<div style="font-size:0.72rem;color:#fbbf24;white-space:nowrap;">' + (l.days == null ? 'overdue' : l.days + 'd') + ' · nudge #' + l.touch + '</div>' +
       '</div>' +
       '<div style="display:flex;gap:8px;margin-top:8px;">' +
         '<button onclick="sendFollowup(' + l.row + ', this)" style="flex:1;background:linear-gradient(135deg,#7c3aed,#2563eb);border:none;color:#fff;border-radius:8px;padding:9px;font-size:0.8rem;font-weight:700;cursor:pointer;">Copy nudge + open</button>' +
@@ -753,6 +1011,18 @@
   // ── Auto Sender ──────────────────────────────────────────────
   let currentLead = null;
 
+  // US/UK quick-load — fills the path field with the right file and loads it
+  // in one click, instead of typing/pasting the path each time you switch
+  // markets. Update these two paths whenever the source leads file changes.
+  const MARKET_PATHS = {
+    US: 'C:\\Users\\pirin\\OneDrive\\Asztali gép\\USA_Leads_Master.xlsx',
+    UK: 'C:\\Users\\pirin\\OneDrive\\Asztali gép\\UK_Verified_150_Leads.xlsx',
+  };
+  function loadMarket(market) {
+    document.getElementById('excel-path').value = MARKET_PATHS[market];
+    loadExcel();
+  }
+
   async function loadExcel() {
     const path = document.getElementById('excel-path').value.trim();
     const status = document.getElementById('auto-load-status');
@@ -817,14 +1087,17 @@
         document.getElementById('auto-dm-box').textContent = d.dm;
         document.getElementById('auto-sent-today').textContent = d.sent_today;
         let note = '';
-        if (d.clipboard && d.msg_opened) {
-          note = '✓ Copied to clipboard. Chat opened — click the message box and Ctrl+V, then Enter.';
+        if (d.picture_attached) {
+          note = '✓ Picture attached in the chat already. Paste or type the DM text above alongside it, then hit Enter to send both together.';
+        } else if (d.clipboard && d.msg_opened) {
+          note = '✓ DM copied to clipboard. Chat opened — click the message box and Ctrl+V, then Enter.';
         } else if (d.clipboard) {
-          note = '✓ Copied to clipboard. Open the chat, click the message box, Ctrl+V, then Enter.';
+          note = '✓ DM copied to clipboard. Open the chat, click the message box, Ctrl+V, then Enter.';
         } else {
           note = 'Copy the DM above and paste it into the message box manually.';
         }
         document.getElementById('auto-typed-note').textContent = note;
+        document.getElementById('auto-copy-shot-btn').style.display = d.has_screenshot ? 'block' : 'none';
         document.getElementById('auto-dm-section').style.display = 'block';
       }
     } catch(e) {
@@ -889,6 +1162,399 @@
     }
   }
 
+  // ── Autószerelő (separate sheet + message; only rendered on the HU app) ───
+  let currentMechLead = null;
+
+  function showMechLead(lead, sent, total) {
+    currentMechLead = lead;
+    document.getElementById('mech-company').textContent = lead.name || lead.url;
+    document.getElementById('mech-url').textContent = lead.url;
+    document.getElementById('mech-progress').textContent = `${sent} / ${total} done`;
+  }
+
+  async function loadMechExcel() {
+    const path = document.getElementById('mech-path').value.trim();
+    const status = document.getElementById('mech-load-status');
+    status.style.color = '#6b7a99'; status.textContent = 'Loading...';
+    try {
+      const r = await fetch('/mech_load', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ path })
+      });
+      const d = await r.json();
+      if (d.error) { status.style.color = '#fca5a5'; status.textContent = d.error; return; }
+      status.style.color = '#4ade80';
+      if (d.done) {
+        // Every lead messaged: no new DM to show, but the follow-ups and
+        // replies below still need this sheet.
+        status.textContent = `Minden lead megkapta az első üzenetet (${d.sent} / ${d.total}). Utánkövetés lent.`;
+        document.getElementById('mech-main').style.display = 'none';
+      } else {
+        status.textContent = `Loaded. ${d.sent} sent, ${d.total - d.sent} remaining.`;
+        showMechLead(d.lead, d.sent, d.total);
+        document.getElementById('mech-main').style.display = 'block';
+      }
+      document.getElementById('mech-dm-section').style.display = 'none';
+      document.getElementById('mech-fu-card').style.display = 'block';
+      document.getElementById('mech-rep-card').style.display = 'block';
+      loadMechFollowups();
+      loadMechReplies();
+    } catch(e) {
+      status.style.color = '#fca5a5'; status.textContent = 'Error: ' + e.message;
+    }
+  }
+
+  async function nextMechLead() {
+    const nextBtn = document.getElementById('mech-next-btn');
+    const markBtn = document.getElementById('mech-mark-btn');
+    const errEl   = document.getElementById('mech-error');
+    nextBtn.disabled = true; nextBtn.textContent = 'Opening profile...';
+    markBtn.disabled = true;
+    errEl.style.display = 'none';
+    document.getElementById('mech-dm-section').style.display = 'none';
+
+    const controller = new AbortController();
+    const hardTimeout = setTimeout(() => controller.abort(), 90000);
+    try {
+      const r = await fetch('/mech_next', { method: 'POST', signal: controller.signal });
+      const d = await r.json();
+      if (d.error) {
+        errEl.textContent = d.error; errEl.style.display = 'block';
+      } else {
+        currentMechLead = d.lead;
+        document.getElementById('mech-company').textContent = d.lead.name || d.lead.url;
+        document.getElementById('mech-url').textContent = d.lead.url;
+        document.getElementById('mech-dm-box').textContent = d.dm;
+        document.getElementById('mech-sent-today').textContent = d.sent_today;
+        let note = '';
+        if (d.clipboard && d.msg_opened) {
+          note = '✓ Message copied to clipboard. Chat opened — click the message box and Ctrl+V, then Enter.';
+        } else if (d.clipboard) {
+          note = '✓ Message copied to clipboard. Open the chat, click the message box, Ctrl+V, then Enter.';
+        } else {
+          note = 'Copy the message above and paste it into the message box manually.';
+        }
+        document.getElementById('mech-typed-note').textContent = note;
+        document.getElementById('mech-dm-section').style.display = 'block';
+      }
+    } catch(e) {
+      const msg = e.name === 'AbortError' ? 'Timed out — Chrome may be slow. Try again.' : 'Error: ' + e.message;
+      errEl.textContent = msg; errEl.style.display = 'block';
+    } finally {
+      clearTimeout(hardTimeout);
+    }
+    nextBtn.disabled = false; nextBtn.textContent = '▶ Open Profile & Build Message';
+    markBtn.disabled = false; markBtn.textContent = '✓ Sent — Load Next';
+  }
+
+  async function skipMechLead() {
+    const skipBtn = document.getElementById('mech-skip-btn');
+    const errEl   = document.getElementById('mech-error');
+    skipBtn.disabled = true; skipBtn.textContent = 'Skipping...';
+    errEl.style.display = 'none';
+    try {
+      const r = await fetch('/mech_skip', { method: 'POST' });
+      const d = await r.json();
+      if (d.error) {
+        errEl.textContent = d.error; errEl.style.display = 'block';
+      } else {
+        showMechLead(d.lead, d.sent, d.total);
+        document.getElementById('mech-dm-section').style.display = 'none';
+      }
+    } catch(e) {
+      errEl.textContent = 'Error: ' + e.message; errEl.style.display = 'block';
+    }
+    skipBtn.disabled = false; skipBtn.textContent = '⟶ Skip this lead';
+  }
+
+  async function markMechSent() {
+    const btn = document.getElementById('mech-mark-btn');
+    const errEl = document.getElementById('mech-error');
+    errEl.style.display = 'none';
+    btn.disabled = true; btn.textContent = 'Marking sent...';
+    try {
+      const r = await fetch('/mech_mark_sent', { method: 'POST' });
+      const d = await r.json();
+      if (d.ok) {
+        document.getElementById('mech-sent-today').textContent = d.sent_today;
+        document.getElementById('mech-progress').textContent = `${d.sent} / ${d.total} done`;
+        await nextMechLead();
+      } else {
+        errEl.textContent = d.error || 'Could not mark as sent — try again.';
+        errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = '✓ Sent — Load Next';
+      }
+    } catch(e) {
+      errEl.textContent = 'Error: ' + e.message;
+      errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = '✓ Sent — Load Next';
+    }
+  }
+
+  function copyMechDM() {
+    const text = document.getElementById('mech-dm-box').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('mech-copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy message'; }, 2000);
+    });
+  }
+
+  // ── Szerelők follow-ups + replies ────────────────────────────────────────
+  // Their own routes because /followups_due, /followup_send, /replies_pending
+  // and /mark_reply all read _auto_state, i.e. whatever sheet is loaded on the
+  // Auto Sender tab. A mechanic lead could never show up in any of them.
+
+  // Lead names and cities come from the sheet and Facebook, so they are
+  // escaped before going into innerHTML.
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  async function loadMechFollowups() {
+    const status = document.getElementById('mech-fu-status');
+    const list   = document.getElementById('mech-fu-list');
+    status.textContent = 'Ellenőrzés...'; list.innerHTML = '';
+    try {
+      const r = await fetch('/mech_followups_due', { method: 'POST' });
+      const d = await r.json();
+      if (d.error) { status.textContent = d.error; return; }
+      document.getElementById('mech-fu-count').textContent = d.count;
+      status.textContent = d.count ? '' : 'Most nincs esedékes utánkövetés.';
+      for (const l of d.due) {
+        const age = l.no_date ? 'nincs dátum' : l.days + ' napja';
+        const row = document.createElement('div');
+        row.id = 'mech-fu-row-' + l.row;
+        row.style.cssText = 'background:#12151e;border:1px solid #2e3650;border-radius:10px;padding:10px 12px;margin-top:8px;';
+        row.innerHTML =
+          '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">' +
+            '<b style="color:#e8eaf0;font-size:0.86rem;">' + escapeHtml(l.name || l.url) + '</b>' +
+            '<span style="font-size:0.72rem;color:#6b7a99;white-space:nowrap;">' + l.touch + '. üzenet · ' + age + '</span>' +
+          '</div>' +
+          (l.city ? '<div style="font-size:0.72rem;color:#6b7a99;margin-top:2px;">' + escapeHtml(l.city) + '</div>' : '') +
+          '<div style="display:flex;gap:8px;margin-top:8px;">' +
+            '<button id="mech-fu-btn-' + l.row + '" onclick="sendMechFollowup(' + l.row + ')" style="flex:1;background:#3a2a1e;border:1px solid #ea580c;color:#fb923c;border-radius:8px;padding:9px;font-size:0.8rem;font-weight:700;cursor:pointer;">Másol + jelöl</button>' +
+            '<a href="' + l.url + '" target="_blank" style="background:#1a2332;border:1px solid #2563eb;color:#60a5fa;border-radius:8px;padding:9px 12px;font-size:0.8rem;font-weight:700;text-decoration:none;">Chat</a>' +
+            '<button onclick="logMechReply(' + l.row + ',true)" style="background:#1e3a2a;border:1px solid #22c55e;color:#4ade80;border-radius:8px;padding:9px 12px;font-size:0.8rem;font-weight:700;cursor:pointer;">Válaszolt</button>' +
+          '</div>' +
+          '<div id="mech-fu-text-' + l.row + '" style="display:none;margin-top:8px;font-size:0.82rem;color:#cbd5e1;background:#0e1118;border:1px solid #2e3650;border-radius:8px;padding:9px;white-space:pre-wrap;"></div>';
+        list.appendChild(row);
+      }
+    } catch (e) { status.textContent = 'Hiba: ' + e.message; }
+  }
+
+  async function sendMechFollowup(row) {
+    const btn = document.getElementById('mech-fu-btn-' + row);
+    const box = document.getElementById('mech-fu-text-' + row);
+    if (btn) { btn.disabled = true; btn.textContent = 'Másolás...'; }
+    try {
+      const r = await fetch('/mech_followup_send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row })
+      });
+      const d = await r.json();
+      if (d.error) {
+        alert(d.error);
+        if (btn) { btn.disabled = false; btn.textContent = 'Másol + jelöl'; }
+        return;
+      }
+      // The touch is already logged server-side, so the button STAYS disabled:
+      // a second click would burn touch 2 minutes after touch 1. The text
+      // stays on screen because it still has to be pasted.
+      if (box) { box.textContent = d.text; box.style.display = 'block'; }
+      if (btn) { btn.textContent = '✓ ' + d.touch + '. üzenet jelölve'; btn.style.opacity = '0.6'; }
+      if (d.url) window.open(d.url, '_blank');
+    } catch (e) {
+      alert('Hiba: ' + e.message);
+      if (btn) { btn.disabled = false; btn.textContent = 'Másol + jelöl'; }
+    }
+  }
+
+  async function loadMechReplies() {
+    const status = document.getElementById('mech-rep-status');
+    const list   = document.getElementById('mech-rep-list');
+    status.textContent = 'Betöltés...'; list.innerHTML = '';
+    try {
+      const r = await fetch('/mech_replies_pending', { method: 'POST' });
+      const d = await r.json();
+      if (d.error) { status.textContent = d.error; return; }
+      document.getElementById('mech-rep-count').textContent = d.count;
+      document.getElementById('mech-rep-stats').textContent =
+        d.sent + ' kiküldve · ' + d.replied + ' válasz'
+        + (d.rate !== null && d.rate !== undefined ? ' · ' + d.rate + '%' : '')
+        + ' · ' + d.logged + ' rögzítve';
+      status.textContent = d.count ? '' : 'Minden kiküldött lead be van jelölve.';
+      for (const l of d.pending) {
+        const age = l.days === null ? 'nincs dátum' : l.days + ' napja';
+        const row = document.createElement('div');
+        row.id = 'mech-rep-row-' + l.row;
+        row.style.cssText = 'background:#12151e;border:1px solid #2e3650;border-radius:10px;padding:10px 12px;margin-top:8px;';
+        row.innerHTML =
+          '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">' +
+            '<b style="color:#e8eaf0;font-size:0.86rem;">' + escapeHtml(l.name || l.url) + '</b>' +
+            '<span style="font-size:0.72rem;color:#6b7a99;white-space:nowrap;">' + age + '</span>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;margin-top:8px;">' +
+            '<button onclick="logMechReply(' + l.row + ',true)"  style="flex:1;background:#1e3a2a;border:1px solid #22c55e;color:#4ade80;border-radius:8px;padding:9px;font-size:0.8rem;font-weight:700;cursor:pointer;">Válaszolt</button>' +
+            '<button onclick="logMechReply(' + l.row + ',false)" style="flex:1;background:#1a1d27;border:1px solid #4b5563;color:#9ca3af;border-radius:8px;padding:9px;font-size:0.8rem;font-weight:700;cursor:pointer;">Nem</button>' +
+            '<a href="' + l.url + '" target="_blank" style="background:#1a2332;border:1px solid #2563eb;color:#60a5fa;border-radius:8px;padding:9px 12px;font-size:0.8rem;font-weight:700;text-decoration:none;">Chat</a>' +
+          '</div>';
+        list.appendChild(row);
+      }
+    } catch (e) { status.textContent = 'Hiba: ' + e.message; }
+  }
+
+  async function logMechReply(row, replied) {
+    try {
+      const r = await fetch('/mech_mark_reply', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row, replied })
+      });
+      const d = await r.json();
+      if (d.error) { alert(d.error); return; }
+      // Drop it from BOTH lists: a "Válaszolt" click in the follow-up list has
+      // to take the lead out of the nudge queue too, or the next refresh would
+      // still offer to chase someone who already answered.
+      const fu  = document.getElementById('mech-fu-row-' + row);
+      const rep = document.getElementById('mech-rep-row-' + row);
+      if (fu)  fu.remove();
+      if (rep) rep.remove();
+      loadMechReplies();
+      loadMechFollowups();
+    } catch (e) { alert('Hiba: ' + e.message); }
+  }
+
+  // ── FB Group Sender (separate from Auto Sender) ───────────────────────────
+  let currentFbLead = null;
+
+  async function loadFbExcel() {
+    const path = document.getElementById('fb-path').value.trim();
+    const status = document.getElementById('fb-load-status');
+    status.style.color = '#6b7a99'; status.textContent = 'Loading...';
+    try {
+      const r = await fetch('/fb_load', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ path })
+      });
+      const d = await r.json();
+      if (d.error) { status.style.color = '#fca5a5'; status.textContent = d.error; return; }
+      status.style.color = '#4ade80';
+      status.textContent = `Loaded. ${d.sent} sent, ${d.total - d.sent} remaining.`;
+      currentFbLead = d.lead;
+      document.getElementById('fb-company').textContent = d.lead.name || d.lead.url;
+      document.getElementById('fb-url').textContent = d.lead.url;
+      document.getElementById('fb-line-preview').textContent = '"' + d.lead.line + '"';
+      document.getElementById('fb-progress').textContent = `${d.sent} / ${d.total} done`;
+      document.getElementById('fb-main').style.display = 'block';
+      document.getElementById('fb-dm-section').style.display = 'none';
+    } catch(e) {
+      status.style.color = '#fca5a5'; status.textContent = 'Error: ' + e.message;
+    }
+  }
+
+  async function nextFbLead() {
+    const nextBtn = document.getElementById('fb-next-btn');
+    const markBtn = document.getElementById('fb-mark-btn');
+    const errEl   = document.getElementById('fb-error');
+    nextBtn.disabled = true; nextBtn.textContent = 'Opening profile...';
+    markBtn.disabled = true;
+    errEl.style.display = 'none';
+    document.getElementById('fb-dm-section').style.display = 'none';
+
+    const controller = new AbortController();
+    const hardTimeout = setTimeout(() => controller.abort(), 90000);
+
+    try {
+      const r = await fetch('/fb_next', { method: 'POST', signal: controller.signal });
+      const d = await r.json();
+      if (d.error) {
+        errEl.textContent = d.error; errEl.style.display = 'block';
+      } else {
+        currentFbLead = d.lead;
+        document.getElementById('fb-company').textContent = d.lead.name || d.lead.url;
+        document.getElementById('fb-url').textContent = d.lead.url;
+        document.getElementById('fb-dm-box').textContent = d.dm;
+        document.getElementById('fb-sent-today').textContent = d.sent_today;
+        let note = '';
+        if (d.clipboard && d.msg_opened) {
+          note = '✓ DM copied to clipboard. Chat opened — click the message box and Ctrl+V, then Enter.';
+        } else if (d.clipboard) {
+          note = '✓ DM copied to clipboard. Open the chat, click the message box, Ctrl+V, then Enter.';
+        } else {
+          note = 'Copy the DM above and paste it into the message box manually.';
+        }
+        document.getElementById('fb-typed-note').textContent = note;
+        document.getElementById('fb-dm-section').style.display = 'block';
+      }
+    } catch(e) {
+      const msg = e.name === 'AbortError' ? 'Timed out — Chrome may be slow. Try again.' : 'Error: ' + e.message;
+      errEl.textContent = msg; errEl.style.display = 'block';
+    } finally {
+      clearTimeout(hardTimeout);
+    }
+    nextBtn.disabled = false; nextBtn.textContent = '▶ Open Profile & Build DM';
+    markBtn.disabled = false; markBtn.textContent = '✓ Sent — Load Next';
+  }
+
+  async function skipFbLead() {
+    const skipBtn = document.getElementById('fb-skip-btn');
+    const errEl   = document.getElementById('fb-error');
+    skipBtn.disabled = true; skipBtn.textContent = 'Skipping...';
+    errEl.style.display = 'none';
+    try {
+      const r = await fetch('/fb_skip', { method: 'POST' });
+      const d = await r.json();
+      if (d.error) {
+        errEl.textContent = d.error; errEl.style.display = 'block';
+      } else {
+        currentFbLead = d.lead;
+        document.getElementById('fb-company').textContent = d.lead.name || d.lead.url;
+        document.getElementById('fb-url').textContent = d.lead.url;
+        document.getElementById('fb-line-preview').textContent = '"' + d.lead.line + '"';
+        document.getElementById('fb-progress').textContent = `${d.sent} / ${d.total} done`;
+        document.getElementById('fb-dm-section').style.display = 'none';
+      }
+    } catch(e) {
+      errEl.textContent = 'Error: ' + e.message; errEl.style.display = 'block';
+    }
+    skipBtn.disabled = false; skipBtn.textContent = '⟶ Skip this lead';
+  }
+
+  async function markFbSent() {
+    const btn = document.getElementById('fb-mark-btn');
+    const errEl = document.getElementById('fb-error');
+    errEl.style.display = 'none';
+    btn.disabled = true; btn.textContent = 'Marking sent...';
+    try {
+      const r = await fetch('/fb_mark_sent', { method: 'POST' });
+      const d = await r.json();
+      if (d.ok) {
+        document.getElementById('fb-sent-today').textContent = d.sent_today;
+        document.getElementById('fb-progress').textContent = `${d.sent} / ${d.total} done`;
+        await nextFbLead();
+      } else {
+        errEl.textContent = d.error || 'Could not mark as sent — try again.';
+        errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = '✓ Sent — Load Next';
+      }
+    } catch(e) {
+      errEl.textContent = 'Error: ' + e.message;
+      errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = '✓ Sent — Load Next';
+    }
+  }
+
+  function copyFbDM() {
+    const text = document.getElementById('fb-dm-box').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('fb-copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy DM'; }, 2000);
+    });
+  }
+
   // ── Owner Emails section (separate from Auto Sender) ─────────────────────
   let currentEmailLead = null;
 
@@ -941,7 +1607,7 @@
         document.getElementById('email-body-box').textContent = d.body;
         document.getElementById('email-sent-today').textContent = d.sent_today;
         document.getElementById('email-note').textContent =
-          'Hit "Open in Gmail" and everything is filled in, just send. Or "Copy email" puts address, subject and body on your clipboard.';
+          'Gmail opened automatically with everything filled in — just review and send. ("Open in Gmail" re-opens it if needed; "Copy email" puts address, subject and body on your clipboard.)';
         document.getElementById('email-out-section').style.display = 'block';
       }
     } catch(e) {
@@ -1036,6 +1702,30 @@
     });
   }
 
+  // Separate from copyAutoDM() on purpose — paste the DM text first, send it,
+  // THEN click this to overwrite the clipboard with the picture and paste that
+  // as a second message. Text and picture can't both live on the clipboard at
+  // once in this manual-paste flow.
+  async function copyAutoScreenshot() {
+    const btn = document.getElementById('auto-copy-shot-btn');
+    const prevText = btn.textContent;
+    btn.textContent = 'Copying...';
+    try {
+      const r = await fetch('/auto_copy_screenshot', { method: 'POST' });
+      const d = await r.json();
+      if (d.error) {
+        btn.textContent = 'Failed'; btn.style.background = '#3a1e1e'; btn.style.color = '#f87171';
+        setTimeout(() => { btn.textContent = prevText; btn.style.background = '#1e2a3a'; btn.style.color = '#60a5fa'; }, 2000);
+        return;
+      }
+      btn.textContent = 'Copied! Ctrl+V it'; btn.style.background = '#16a34a'; btn.style.color = '#fff';
+      setTimeout(() => { btn.textContent = prevText; btn.style.background = '#1e2a3a'; btn.style.color = '#60a5fa'; }, 2500);
+    } catch (e) {
+      btn.textContent = 'Failed'; btn.style.background = '#3a1e1e'; btn.style.color = '#f87171';
+      setTimeout(() => { btn.textContent = prevText; btn.style.background = '#1e2a3a'; btn.style.color = '#60a5fa'; }, 2000);
+    }
+  }
+
   // ── A/B message variant toggle ──────────────────────────────────────────
   let currentVariant = '{{ variant }}';
   function renderVariant() {
@@ -1046,6 +1736,14 @@
       btn.textContent = 'Stripped (B)';
       btn.style.background = '#7c3aed'; btn.style.color = '#fff'; btn.style.border = 'none';
       desc.textContent = 'Short one-liner, leads with the sample';
+    } else if (currentVariant === 'british') {
+      btn.textContent = 'British';
+      btn.style.background = '#2563eb'; btn.style.color = '#fff'; btn.style.border = 'none';
+      desc.textContent = 'Personalised opener, British wording';
+    } else if (currentVariant === 'funny') {
+      btn.textContent = '😂 Funny';
+      btn.style.background = '#f59e0b'; btn.style.color = '#111'; btn.style.border = 'none';
+      desc.textContent = 'Joke message + matching photo, rotates through 5';
     } else {
       btn.textContent = 'Full (current)';
       btn.style.background = '#1a1d27'; btn.style.color = '#9ca3af'; btn.style.border = '1px solid #2a2f42';

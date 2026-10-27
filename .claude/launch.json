@@ -4,8 +4,26 @@
     {
       "name": "email-campaign",
       "runtimeExecutable": "py",
-      "runtimeArgs": ["app.py"],
+      "runtimeArgs": [
+        "app.py"
+      ],
       "port": 5000
+    },
+    {
+      "name": "dm-hu",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "dm_app_hu.py"
+      ],
+      "port": 5002
+    },
+    {
+      "name": "email-hu",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "hu_email_app.py"
+      ],
+      "port": 5003
     }
   ]
 }

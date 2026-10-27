@@ -36,11 +36,76 @@ HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
-# ─── WEBSITE SCRAPER ───────────────────────────────────────────────────────────
+# ─── SCRAPERS ──────────────────────────────────────────────────────────────────
 
 def clean_text(text: str) -> str:
     """Collapse whitespace and strip."""
     return re.sub(r"\s+", " ", text).strip()
+
+
+def fetch_facebook(url: str) -> dict:
+    """
+    Fetch a public Facebook business page and return what we can.
+    Uses the mobile version which has more static content.
+    """
+    result = {
+        "success": False,
+        "url": url,
+        "page_name": "",
+        "about": "",
+        "body_text": "",
+        "error": "",
+    }
+
+    if not url or url.strip() in ("", "N/A", "n/a", "-"):
+        result["error"] = "No Facebook URL provided"
+        return result
+
+    # Mobile Facebook has more readable static content
+    mobile_url = url.replace("www.facebook.com", "m.facebook.com")
+    if not mobile_url.startswith(("http://", "https://")):
+        mobile_url = "https://" + mobile_url
+    result["url"] = mobile_url
+
+    mobile_headers = {
+        **HEADERS,
+        "User-Agent": (
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 "
+            "Mobile/15E148 Safari/604.1"
+        ),
+    }
+
+    try:
+        resp = requests.get(mobile_url, headers=mobile_headers,
+                            timeout=REQUEST_TIMEOUT, allow_redirects=True)
+        resp.raise_for_status()
+
+        soup = BeautifulSoup(resp.text, "lxml")
+
+        for tag in soup(["script", "style", "head", "noscript", "iframe", "svg"]):
+            tag.decompose()
+
+        # OG meta — often has page description and name
+        og_desc = soup.find("meta", property="og:description")
+        if og_desc and og_desc.get("content"):
+            result["about"] = clean_text(og_desc["content"])
+
+        og_name = soup.find("meta", property="og:title")
+        if og_name and og_name.get("content"):
+            result["page_name"] = clean_text(og_name["content"])
+
+        # Body text (posts, about section — limited without JS)
+        body = soup.find("body")
+        raw_text = body.get_text(separator=" ") if body else soup.get_text(separator=" ")
+        result["body_text"] = clean_text(raw_text)[:2000]
+
+        result["success"] = True
+
+    except Exception as e:
+        result["error"] = f"Facebook fetch failed: {str(e)[:120]}"
+
+    return result
 
 
 def fetch_website(url: str) -> dict:
@@ -141,8 +206,9 @@ def fetch_website(url: str) -> dict:
 
 # ─── CLAUDE EMAIL GENERATOR ────────────────────────────────────────────────────
 
-def build_research_prompt(company: str, contact: str, site_data: dict) -> str:
-    """Build the prompt asking Claude to analyse the site and write emails."""
+def build_research_prompt(company: str, contact: str, site_data: dict,
+                          fb_data: dict | None = None) -> str:
+    """Build the prompt asking Claude to analyse the site and write emails + WhatsApp message."""
 
     site_summary = ""
     if site_data["success"]:
@@ -159,17 +225,60 @@ WEBSITE DATA:
     else:
         site_summary = f"WEBSITE FETCH FAILED: {site_data['error']}"
 
-    return f"""You are an expert B2B cold email copywriter for a lead-filtering / lead-qualification service that helps landscaping companies stop wasting time on bad leads.
+    fb_summary = ""
+    if fb_data:
+        if fb_data["success"]:
+            fb_summary = f"""
+FACEBOOK PAGE DATA:
+- Page name: {fb_data['page_name']}
+- About / description: {fb_data['about']}
+- Page content excerpt:
+{fb_data['body_text'][:1500]}
+"""
+        else:
+            fb_summary = f"FACEBOOK FETCH FAILED: {fb_data['error']}"
+
+    return f"""You are an expert B2B cold outreach copywriter for a lead-filtering / lead-qualification service that helps landscaping companies stop wasting time on bad leads.
 
 Company: {company}
 Contact: {contact}
 Website: {site_data['url']}
 
 {site_summary}
+{fb_summary}
 
 YOUR TASK — produce a JSON object with exactly these keys:
-1. "research_notes" — 2-4 sentences about what you observed on their site (services offered, lead capture quality, any obvious problems with how they handle enquiries). If the site failed to load, note that and describe what a typical landscaper site looks like.
-2. "email_1" — the initial cold outreach email (100-150 words). Rules:
+
+1. "research_notes" — 2-4 sentences about what you observed on their site and Facebook page (services offered, lead capture quality, any obvious problems with how they handle enquiries). If the site failed to load, note that and describe what a typical landscaper site looks like.
+
+2. "whatsapp_message" — a WhatsApp cold outreach message. Follow this exact structure and tone:
+
+   PART 1 — OPENING + SPECIFIC OBSERVATION:
+   "Cheers [Name] just saw you on Facebook, this [specific thing from their page] is [genuine understated compliment]"
+   - Use the contact name if provided, otherwise skip it
+   - [specific thing] = something real from their Facebook — a project type, a specific job they posted, a service they're known for (e.g. "Bio Retention system", "that resin driveway in Cheshire", "the green wall work you've been posting")
+   - [compliment] = short and genuine — NOT "absolutely brilliant I never saw anything like this before" (too over the top). Use: "looks class", "looks spot on", "really tidy finish", "looks brilliant"
+   - This line must be a statement, never a question
+   - If no Facebook data available, skip this part entirely
+
+   PART 2 — SCREENSHOT LINE (use exactly):
+   "Have a quick look at that screenshot I sent; it's basically how an enquiry looks when it hits your phone. The customer gets a rough price instantly, and you get all their details — budget, postcode, the lot — before you even pick up the phone."
+
+   PART 3 — WHAT IT DOES (use exactly):
+   "I'm building these for landscapers to help filter out the tyre-kickers and save you some grief."
+
+   PART 4 — CLOSE (use exactly):
+   "Might not be for you, but if you're interested in how it works, let me know what you reckon. Cheers"
+
+   GOLD STANDARD EXAMPLE (match this tone exactly):
+   "Cheers Andrew just saw you on Facebook, this Bio Retention system looks brilliant. Have a quick look at that screenshot I sent; it's basically how an enquiry looks when it hits your phone. The customer gets a rough price instantly, and you get all their details — budget, postcode, the lot — before you even pick up the phone. I'm building these for landscapers to help filter out the tyre-kickers and save you some grief. Might not be for you, but if you're interested in how it works, let me know what you reckon. Cheers"
+
+   RULES:
+   - Casual British English throughout — "tyre-kickers", "the lot", "grief", "reckon", "cheers" are all correct
+   - No exclamation marks. No emojis. No corporate language. No questions anywhere.
+   - Do NOT say "AI tools", "system", "software", "leads", "qualified", "solution"
+
+3. "email_1" — the initial cold outreach email (100-150 words). Rules:
    - Subject line included at the top as "Subject: ..."
    - Reference something SPECIFIC from their website (a service, a gap, the booking flow, etc.)
    - Identify a lead capture / lead quality problem they likely have
@@ -177,28 +286,33 @@ YOUR TASK — produce a JSON object with exactly these keys:
    - End with ONE clear CTA (e.g., "Worth a 15-min call this week?")
    - Tone: direct, peer-to-peer, no fluff
    - NO "I hope this email finds you well" or corporate opener
-   - Sign off with: [Your Name] (placeholder)
-3. "email_2" — follow-up 1 (send 3 days after email 1, ~80-100 words). Rules:
+   - Sign off with: Milan, Landscale Agency
+
+4. "email_2" — follow-up 1 (send 3 days after email 1, ~80-100 words). Rules:
    - Subject: "Re: [original subject]" or a value-add subject
    - Add a specific insight: local landscaping market competition, seasonal lead spikes, or a stat about unqualified leads wasting field-crew time
    - Keep it punchy — one pain point, one nudge
    - No hard sell
-4. "email_3" — follow-up 2 (send 5 days after email 2, ~80-100 words). Rules:
+
+5. "email_3" — follow-up 2 (send 5 days after email 2, ~80-100 words). Rules:
    - Lead with a brief case study or success metric (e.g., "One landscaper we work with cut their quote-to-close cycle by 40% after filtering...")
    - Soft close: "Happy to share how we'd do this for {company} specifically — just say the word."
    - This is the last touch; make it easy to respond
 
 IMPORTANT:
 - Return ONLY valid JSON, no markdown fences, no extra text.
-- Make email_1 genuinely specific to this company/website. Generic = useless.
-- If the website failed to load, write emails for a landscaper that probably has a basic site with a phone number and a "contact us" form — acknowledge you tried to find info on them.
+- Make whatsapp_message and email_1 genuinely specific to this company/website. Generic = useless.
+- The observation in whatsapp_message must be a statement — NEVER a question. "this resin driveway looks class" is right. "do you get a lot of demand for that?" is wrong.
+- Parts 2, 3 and 4 of whatsapp_message must follow the exact wording in the template — do not paraphrase them.
+- If no Facebook data is available or nothing specific stands out, skip line 1 and go straight to line 2.
+- If the website failed to load, write emails for a landscaper that probably has a basic site with a phone number and a "contact us" form.
 """
 
 
 def generate_emails(client: anthropic.Anthropic, company: str, contact: str,
-                    site_data: dict) -> dict:
-    """Call Claude and return parsed JSON with research_notes + 3 emails."""
-    prompt = build_research_prompt(company, contact, site_data)
+                    site_data: dict, fb_data: dict | None = None) -> dict:
+    """Call Claude and return parsed JSON with research_notes + WhatsApp + 3 emails."""
+    prompt = build_research_prompt(company, contact, site_data, fb_data)
 
     try:
         with client.messages.stream(
@@ -225,6 +339,7 @@ def generate_emails(client: anthropic.Anthropic, company: str, contact: str,
     except Exception as e:
         return {
             "research_notes": f"ERROR generating content: {e}",
+            "whatsapp_message": "ERROR — see research notes",
             "email_1": "ERROR — see research notes",
             "email_2": "ERROR — see research notes",
             "email_3": "ERROR — see research notes",
@@ -252,6 +367,8 @@ def read_input_file(path: str) -> list[dict]:
             col_map.setdefault("company", i)
         elif any(k in h for k in ["contact", "first name", "person"]):
             col_map.setdefault("contact", i)
+        elif any(k in h for k in ["facebook", "fb"]):
+            col_map.setdefault("facebook", i)
         elif any(k in h for k in ["website", "url", "web", "site"]):
             col_map.setdefault("website", i)
         elif any(k in h for k in ["phone", "tel", "mobile", "cell"]):
@@ -266,6 +383,7 @@ def read_input_file(path: str) -> list[dict]:
             "Contact Name": str(row[col_map.get("contact", 1)] or "").strip(),
             "Website URL":  str(row[col_map.get("website", 2)] or "").strip(),
             "Phone Number": str(row[col_map.get("phone", 3)] or "").strip(),
+            "Facebook URL": str(row[col_map["facebook"]] or "").strip() if "facebook" in col_map else "",
         }
         records.append(record)
 
@@ -279,9 +397,9 @@ def write_output_file(records: list[dict], output_path: str):
     ws.title = "Email Campaign"
 
     columns = [
-        "Company Name", "Contact Name", "Website URL", "Phone Number",
-        "Research Notes", "Email 1 (Initial)", "Email 2 (Follow-up Day 3)",
-        "Email 3 (Follow-up Day 8)", "Status"
+        "Company Name", "Contact Name", "Website URL", "Facebook URL", "Phone Number",
+        "WhatsApp Message", "Research Notes", "Email 1 (Initial)",
+        "Email 2 (Follow-up Day 3)", "Email 3 (Follow-up Day 8)", "Status"
     ]
 
     # Header styling
@@ -305,7 +423,9 @@ def write_output_file(records: list[dict], output_path: str):
             rec.get("Company Name", ""),
             rec.get("Contact Name", ""),
             rec.get("Website URL", ""),
+            rec.get("Facebook URL", ""),
             rec.get("Phone Number", ""),
+            rec.get("WhatsApp Message", ""),
             rec.get("Research Notes", ""),
             rec.get("Email 1", ""),
             rec.get("Email 2", ""),
@@ -318,7 +438,7 @@ def write_output_file(records: list[dict], output_path: str):
             cell.alignment = Alignment(vertical="top", wrap_text=True)
 
     # Column widths
-    widths = [28, 20, 35, 18, 50, 70, 70, 70, 15]
+    widths = [28, 20, 35, 35, 18, 55, 50, 70, 70, 70, 15]
     for col_idx, width in enumerate(widths, 1):
         ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = width
 
@@ -374,6 +494,8 @@ def main():
         contact = rec["Contact Name"] or "there"
         url     = rec["Website URL"]
 
+        fb_url  = rec.get("Facebook URL", "")
+
         print(f"[{i}/{len(records)}] {company}")
         print(f"  🌐  Fetching website: {url or '(none)'}")
 
@@ -386,14 +508,25 @@ def main():
 
         time.sleep(REQUEST_DELAY)
 
-        print(f"  🤖  Generating emails with Claude...")
-        output = generate_emails(client, company, contact, site_data)
+        fb_data = None
+        if fb_url:
+            print(f"  📘  Fetching Facebook: {fb_url}")
+            fb_data = fetch_facebook(fb_url)
+            if fb_data["success"]:
+                print(f"  ✅  Facebook loaded — about: {fb_data['about'][:60] or '(none)'}")
+            else:
+                print(f"  ⚠️   Facebook fetch failed: {fb_data['error']}")
+            time.sleep(REQUEST_DELAY)
 
-        rec["Research Notes"] = output.get("research_notes", "")
-        rec["Email 1"]        = output.get("email_1", "")
-        rec["Email 2"]        = output.get("email_2", "")
-        rec["Email 3"]        = output.get("email_3", "")
-        rec["Status"]         = ""
+        print(f"  🤖  Generating messages with Claude...")
+        output = generate_emails(client, company, contact, site_data, fb_data)
+
+        rec["WhatsApp Message"] = output.get("whatsapp_message", "")
+        rec["Research Notes"]   = output.get("research_notes", "")
+        rec["Email 1"]          = output.get("email_1", "")
+        rec["Email 2"]          = output.get("email_2", "")
+        rec["Email 3"]          = output.get("email_3", "")
+        rec["Status"]           = ""
 
         print(f"  ✅  Done\n")
 
