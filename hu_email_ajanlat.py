@@ -106,16 +106,21 @@ def ajanlat_body(opener: str, first: str, niche: str = "") -> str:
     # comes from THEIR table, the program only reads the email, and it says
     # when something is missing instead of guessing.
     blocks += [
-        ("Nyomdáknak építek egy programot, ami az ajánlatkérésekből "
-         "árajánlatot készít. Bemásolják az ügyfél levelét, a program kiszedi "
-         "belőle a formátumot, a példányszámot, a papírt és a színeket, és az "
-         "Önök árlistájából kiszámolja a tételeket." if printer else
-         "Olyan programot építek, ami az ajánlatkérésekből árajánlatot "
-         "készít. Bemásolják az ügyfél levelét, a program kiszedi belőle, mit "
-         "és mennyit kér, és az Önök árlistájából kiszámolja a tételeket."),
+        ("Nyomdáknak építek egy programot" if printer
+         else "Olyan programot építek")
+        + ", ami az ajánlatkérésekből árajánlatot készít. Bemásolják az "
+        "ügyfél levelét, a program kigyűjti belőle az adatokat, és az Önök "
+        "kalkulációs szabályai és árlistája alapján összerakja a tételes "
+        "ajánlatot.",
 
-        "Az árat nem a gép találja ki, hanem az Önök táblázatából számol. Ha "
-        "valami hiányzik a levélből, nem találgat, hanem szól.",
+        # Don't list the inputs: a calculator knows a price depends on more
+        # than format and paper, and a short list reads as naive (user's
+        # call, 2026-10-27). Admit it and say it follows THEIR rules.
+        ("Tudom, hogy egy nyomdai ár sok mindentől függ" if printer
+         else "Tudom, hogy egy ár sok mindentől függ")
+        + ", és nem minden munka sablonos. Az árat ezért nem a gép "
+        "találja ki, hanem úgy számol, ahogy Önök. Ha valami hiányzik, vagy a "
+        "munka túl egyedi, nem találgat, hanem jelzi.",
 
         "Így a kollégának nem kell gépelnie és számolnia, csak átnézi és "
         "elküldi. Akit most felvesznek, sokkal több ajánlatot tud kiadni, és "
