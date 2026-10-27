@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Email Sender HU</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f1117; color: #e8eaf0;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; padding: 40px 20px;
+    }
+
+    h1 {
+      font-size: 1.6rem; font-weight: 700; margin-bottom: 6px;
+      background: linear-gradient(135deg, #4ade80, #22d3ee);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .sub { color: #6b7a99; font-size: 0.88rem; margin-bottom: 28px; text-align: center; }
+
+    .card {
+      background: #1a1d27; border: 1px solid #2a2f42;
+      border-radius: 16px; padding: 28px; width: 100%; max-width: 640px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4); margin-bottom: 20px;
+    }
+
+    label { display: block; font-size: 0.78rem; font-weight: 600; color: #8b9cb8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
+
+    input[type="text"] {
+      width: 100%; background: #12151e; border: 1px solid #2e3650;
+      border-radius: 8px; color: #e8eaf0; padding: 11px 14px;
+      font-size: 0.9rem; outline: none; transition: border-color .2s;
+    }
+    input[type="text"]:focus { border-color: #4ade80; }
+
+    .row { display: flex; gap: 10px; }
+    .row input { flex: 1; }
+
+    button {
+      border: none; border-radius: 10px; color: #fff; font-weight: 700;
+      cursor: pointer; transition: opacity .2s, transform .1s; font-size: 0.95rem;
+    }
+    button:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+
+    #load-btn { padding: 12px 20px; background: linear-gradient(135deg, #2563eb, #0891b2); white-space: nowrap; }
+    #next-btn { flex: 2; padding: 16px; font-size: 1.05rem; background: linear-gradient(135deg, #2563eb, #0891b2); }
+    #skip-btn { flex: 1; padding: 16px; background: #2a2f42; color: #8b9cb8; }
+    #send-btn { flex: 2; padding: 16px; font-size: 1.05rem; background: linear-gradient(135deg, #16a34a, #0891b2); }
+
+    .stats {
+      display: flex; gap: 20px; justify-content: center; margin: 18px 0 4px;
+      font-size: 0.85rem; color: #8b9cb8;
+    }
+    .stats b { color: #4ade80; }
+
+    select#account-select, select#mode-select {
+      width: 100%; background: #12151e; border: 1px solid #2e3650;
+      border-radius: 8px; color: #e8eaf0; padding: 11px 14px;
+      font-size: 0.9rem; outline: none; transition: border-color .2s;
+    }
+    select#account-select:focus, select#mode-select:focus { border-color: #4ade80; }
+
+    .status { text-align: center; font-size: 0.85rem; color: #f59e0b; min-height: 20px; margin-top: 10px; }
+    .status.err { color: #f87171; }
+
+    #result { display: none; }
+
+    .field { margin-bottom: 16px; }
+    .field-label {
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: #4ade80; margin-bottom: 6px;
+    }
+    .meta-line { font-size: 0.82rem; color: #6b7a99; margin-bottom: 14px; }
+    .meta-line b { color: #93c5fd; }
+
+    .box {
+      background: #12151e; border: 1px solid #2e3650; border-radius: 10px;
+      padding: 16px; font-size: 0.95rem; line-height: 1.6; color: #e8eaf0;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    #subject-box { font-weight: 700; }
+
+    textarea.editable {
+      width: 100%; background: #12151e; border: 1px solid #2e3650;
+      border-radius: 10px; color: #e8eaf0; padding: 14px 16px;
+      font-size: 0.95rem; line-height: 1.6; font-family: inherit;
+      resize: vertical; outline: none;
+    }
+    textarea.editable:focus { border-color: #4ade80; }
+    #subject-input { font-weight: 700; min-height: 40px; }
+    #body-input { min-height: 260px; }
+
+    .send-note {
+      display: flex; align-items: center; gap: 8px; margin-top: 14px;
+      font-size: 0.82rem; color: #4ade80; background: #0d1a10;
+      border: 1px solid #164a2a; border-radius: 8px; padding: 10px 14px;
+      display: none;
+    }
+    /* Amber, not red: this is "check the website before you send", not an
+       error — the send is still allowed, since only a human looking at the
+       actual site can tell a company contact point from a personal one. */
+    .addr-warn {
+      display: none; margin-top: 8px; font-size: 0.8rem; line-height: 1.5;
+      color: #fbbf24; background: #1c1608; border: 1px solid #5b4508;
+      border-radius: 8px; padding: 10px 14px;
+    }
+    /* Red, unlike the amber warnings: a bounce rate this high is a stop
+       signal about the sender's own reputation, not a "check this one". */
+    .addr-warn.bad {
+      color: #fca5a5; background: #250f0f; border-color: #7f1d1d;
+    }
+    /* Green when the box is carrying only good news (address confirmed on
+       their own site) — an amber strip that says "this is fine" reads as a
+       warning at a glance and defeats the point. */
+    .addr-warn.ok {
+      color: #86efac; background: #0d1a10; border-color: #164a2a;
+    }
+
+    /* ── Follow-up queue ─────────────────────────────────────────────── */
+    .fup-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 14px; margin-bottom: 14px;
+    }
+    .fup-title { font-size: 1.02rem; font-weight: 700; color: #e8eaf0; }
+    .fup-sub { font-size: 0.76rem; color: #6b7a99; margin-top: 2px; }
+    .fup-count {
+      font-size: 1.5rem; font-weight: 700; color: #4ade80;
+      font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right;
+    }
+    .fup-row {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 11px 14px; margin-bottom: 8px;
+      background: #12151e; border: 1px solid #2e3650; border-radius: 9px;
+    }
+    .fup-row .who { flex: 1 1 190px; min-width: 0; }
+    .fup-row .who b { color: #93c5fd; font-size: 0.9rem; }
+    .fup-row .who span {
+      display: block; font-size: 0.76rem; color: #6b7a99;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .fup-badge {
+      font-size: 0.7rem; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+      background: #14243a; color: #93c5fd; white-space: nowrap;
+    }
+    .fup-badge.s3 { background: #2b1710; color: #e07a4a; }
+    .fup-row button {
+      padding: 6px 13px; font-size: 0.8rem; border-radius: 7px;
+    }
+    .fup-empty {
+      font-size: 0.85rem; color: #6b7a99; padding: 14px 2px;
+    }
+    #fup-draft { margin-top: 18px; border-top: 1px solid #2e3650; padding-top: 18px; }
+    .actions { display: flex; gap: 10px; margin-top: 22px; }
+    .spinner {
+      display: none; width: 16px; height: 16px; border: 2px solid #2e3650;
+      border-top-color: #4ade80; border-radius: 50%; animation: spin .7s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <h1>Email Sender HU</h1>
+  <div class="sub">Weboldal alapján személyre szabott hideg email, egyesével, Gmail-lel</div>
+
+  <div class="card">
+    <div class="field" style="margin-bottom:14px">
+      <label for="mode-select">Kampány</label>
+      <select id="mode-select" onchange="onModeChange()">
+        <option value="mech" selected>Autószerelők</option>
+        <option value="builders">Építőipar (eredeti levél)</option>
+        <option value="ajanlat">Ajánlatkészítő hirdetések</option>
+      </select>
+    </div>
+    <label for="path-input">Excel fájl</label>
+    <div class="row">
+      <input type="text" id="path-input" value="C:\Users\pirin\Downloads\hun_all_email_leads 10 19.xlsx"
+             placeholder="C:\Users\pirin\Downloads\hun_all_email_leads 10 19.xlsx"/>
+      <button id="load-btn" onclick="loadFile()">Betöltés</button>
+    </div>
+
+    <div class="field" style="margin-top:14px;margin-bottom:0">
+      <label for="account-select">Küldő fiók</label>
+      <select id="account-select" onchange="onAccountChange()">
+        <option value="">(tölts be egy fájlt előbb)</option>
+      </select>
+    </div>
+
+    <div class="stats" id="stats" style="display:none">
+      <span>Összes: <b id="stat-total">0</b></span>
+      <span>Elküldve: <b id="stat-sent">0</b></span>
+      <span>Ma: <b id="stat-today">0</b></span>
+    </div>
+    <div class="status" id="load-status"></div>
+  </div>
+
+  <!-- Follow-up queue. Hidden until a file is loaded, same as the worker card. -->
+  <div class="card" id="fup-card" style="display:none">
+    <div class="fup-head">
+      <div>
+        <div class="fup-title">Utánkövetés</div>
+        <div class="fup-sub" id="fup-sub">+3 / +7 / +14 nap</div>
+      </div>
+      <div class="fup-count" id="fup-count">0</div>
+    </div>
+
+    <div class="addr-warn" id="fup-reauth"></div>
+    <div class="addr-warn" id="bounce-warn"></div>
+
+    <div class="actions">
+      <button id="fup-check-btn" onclick="checkReplies()">Válaszok ellenőrzése</button>
+      <button id="fup-refresh-btn" onclick="loadFollowups()">Sor frissítése</button>
+    </div>
+    <div class="status" id="fup-status"></div>
+
+    <div id="fup-list"></div>
+
+    <div id="fup-draft" style="display:none">
+      <div class="meta-line">
+        <b id="f-name"></b> — <span id="f-step"></span>
+      </div>
+      <div class="field">
+        <div class="field-label">Címzett</div>
+        <div class="box" id="f-email"></div>
+        <div class="addr-warn" id="f-warn"></div>
+      </div>
+      <div class="field">
+        <div class="field-label">Tárgy</div>
+        <textarea class="editable" id="f-subject" rows="1"></textarea>
+      </div>
+      <div class="field">
+        <div class="field-label">Levél</div>
+        <textarea class="editable" id="f-body" rows="10"></textarea>
+      </div>
+      <div class="actions">
+        <button id="f-send-btn" onclick="sendFollowup()">Utánkövetés küldése →</button>
+        <button id="f-replied-btn" onclick="markReplied()">Válaszolt, kihagyás</button>
+        <button id="f-cancel-btn" onclick="closeDraft()">Mégse</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="worker-card" style="display:none">
+    <div class="actions" id="next-row">
+      <button id="next-btn" onclick="nextLead()">Következő lead →</button>
+    </div>
+    <div class="spinner" id="spinner"></div>
+    <div class="status" id="work-status"></div>
+
+    <div id="result">
+      <div class="meta-line">
+        <b id="r-name"></b> — <span id="r-city"></span> · <span id="r-niche"></span>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Címzett</div>
+        <div class="box" id="r-email"></div>
+        <div class="addr-warn" id="addr-warn"></div>
+      </div>
+      <div class="field">
+        <div class="field-label">Tárgy</div>
+        <textarea class="editable" id="subject-input" rows="1"></textarea>
+      </div>
+      <div class="field">
+        <div class="field-label">Levél</div>
+        <textarea class="editable" id="body-input" rows="14"></textarea>
+      </div>
+
+      <div class="actions">
+        <button id="send-btn" onclick="sendLead()">Küldés →</button>
+        <button id="skip-btn" onclick="skipLead()">Kihagyás</button>
+      </div>
+      <div class="send-note" id="send-note">Elküldve!</div>
+    </div>
+  </div>
+
+  <script>
+    async function post(url, body) {
+      // A dead/unreachable server (closed terminal, crashed process) used to
+      // throw here uncaught — nextLead()/sendLead()/skipLead() never had a
+      // try/catch, so the spinner just spun forever with no message,
+      // indistinguishable from "still generating". Turning a network failure
+      // into a normal {error: ...} means every existing "if (res.error)"
+      // check downstream just handles it, no other function needs to change.
+      let r;
+      try {
+        r = await fetch(url, {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(body || {})
+        });
+      } catch (e) {
+        return {error: "Nem érem el a szervert — fut még a hu_email_app.py "
+                      + "(a START_EMAIL_HU.bat ablaka)? Indítsd újra, és próbáld meg megint."};
+      }
+      try {
+        return await r.json();
+      } catch (e) {
+        return {error: `A szerver váratlan választ adott (HTTP ${r.status}).`};
+      }
+    }
+
+    function setStatus(el, text, isErr) {
+      el.textContent = text || "";
+      el.classList.toggle("err", !!isErr);
+    }
+
+    // Shared by /load, /next, /send, /skip so the "Ma" (today) figure — the
+    // domain-warmup daily cap, read fresh from the sheet's timestamps every
+    // time — is never silently stale in the UI, e.g. this was previously
+    // just missing from loadFile() entirely.
+    function updateStats(res) {
+      document.getElementById("stat-total").textContent = res.total;
+      document.getElementById("stat-sent").textContent = res.sent;
+      if (res.sent_today !== undefined) {
+        const cap = res.daily_cap !== undefined ? `/${res.daily_cap}` : "";
+        document.getElementById("stat-today").textContent = `${res.sent_today}${cap}`;
+      }
+    }
+
+    let selectedAccount = "";
+
+    const DEFAULT_PATHS = {
+      // One combined file (10-19 export, send history carried over from 10-08); each campaign only sees its own trade.
+      mech:     "C:\\Users\\pirin\\Downloads\\hun_all_email_leads 10 19.xlsx",
+      builders: "C:\\Users\\pirin\\Downloads\\hun_all_email_leads 10 19.xlsx",
+      ajanlat:  "C:\\Users\\pirin\\Downloads\\ajanlatkeszito_leadek.xlsx",
+    };
+
+    // Each campaign remembers its own Excel path, so switching the dropdown
+    // swaps the sheet instead of loading the builders' list as mechanics.
+    function onModeChange() {
+      const mode = document.getElementById("mode-select").value;
+      try {
+        const saved = localStorage.getItem("path4_" + mode);
+        document.getElementById("path-input").value = saved || DEFAULT_PATHS[mode];
+      } catch (e) {
+        document.getElementById("path-input").value = DEFAULT_PATHS[mode];
+      }
+      document.getElementById("worker-card").style.display = "none";
+      document.getElementById("fup-card").style.display = "none";
+      document.getElementById("stats").style.display = "none";
+    }
+
+    async function loadFile() {
+      const path = document.getElementById("path-input").value.trim();
+      const status = document.getElementById("load-status");
+      setStatus(status, "Betöltés...");
+      const mode = document.getElementById("mode-select").value;
+      const res = await post("/load", {path, account: selectedAccount, mode});
+      if (res.error) { setStatus(status, res.error, true); return; }
+      try { localStorage.setItem("path4_" + mode, path); } catch (e) {}
+      setStatus(status, "");
+      document.getElementById("stats").style.display = "flex";
+      updateStats(res);
+
+      // Populate the account dropdown from the server's own registry
+      // (gmail_send.ACCOUNTS) instead of hardcoding labels here — adding a
+      // third account later only ever means editing gmail_send.py.
+      if (res.accounts) {
+        const sel = document.getElementById("account-select");
+        sel.innerHTML = "";
+        for (const a of res.accounts) {
+          const opt = document.createElement("option");
+          opt.value = a.key; opt.textContent = a.label;
+          sel.appendChild(opt);
+        }
+        sel.value = res.account;
+        selectedAccount = res.account;
+      }
+
+      document.getElementById("worker-card").style.display = "block";
+      document.getElementById("fup-card").style.display = "block";
+      loadFollowups();
+    }
+
+    // ── Follow-up queue ───────────────────────────────────────────────
+    let draftRow = null;
+
+    async function loadFollowups(opts) {
+      // sweep:false means the caller already ran the Gmail reply sweep and
+      // only wants the queue rebuilt (see /followups).
+      const sweep = !(opts && opts.sweep === false);
+      const status = document.getElementById("fup-status");
+      const res = await post("/followups", {sweep});
+      if (res.error) { setStatus(status, res.error, true); return; }
+
+      // The automatic reply sweep just ran (server-side, on every load —
+      // no button click needed). Say what it found so it's visible that
+      // this happened, not a silent background thing.
+      if (res.auto_check) {
+        const c = res.auto_check;
+        let msg = `Automatikus ellenőrzés: ${c.checked} szál, ${c.found} új válasz`
+          + (c.bounces ? `, ${c.bounces} visszapattanás` : "") + ".";
+        if (c.errors && c.errors.length) msg += " Hibák: " + c.errors.join(" | ");
+        setStatus(status, msg, !!(c.errors && c.errors.length));
+      } else if (sweep) {
+        setStatus(status, "");
+      }   // sweep skipped: leave the caller's own status message in place
+
+      document.getElementById("fup-count").textContent = res.count;
+      if (res.schedule) {
+        document.getElementById("fup-sub").textContent =
+          res.schedule.map(s => `${s.label} +${s.days} nap`).join(" · ");
+      }
+
+      // Reply detection needs a scope the original send-only grant didn't
+      // include, so say so plainly rather than letting follow-ups go out
+      // blind to replies.
+      const ra = document.getElementById("fup-reauth");
+      if (res.needs_reauth && res.needs_reauth.length) {
+        ra.textContent = "A válaszfigyeléshez egyszeri újbóli bejelentkezés kell "
+          + "ezeknél a fiókoknál: " + res.needs_reauth.join(", ")
+          + ". Futtasd a terminálban: py gmail_send.py — és jelentkezz be az adott fiókkal. "
+          + "Addig a 'Válaszok ellenőrzése' nem fog működni.";
+        ra.style.display = "block";
+      } else {
+        ra.style.display = "none";
+      }
+
+      showDelivery(res.delivery);
+
+      const list = document.getElementById("fup-list");
+      list.innerHTML = "";
+      if (!res.queue.length) {
+        list.innerHTML = '<div class="fup-empty">Ma nincs esedékes utánkövetés.</div>';
+        return;
+      }
+      for (const q of res.queue) {
+        const row = document.createElement("div");
+        row.className = "fup-row";
+        row.dataset.row = q.row;
+        const badge = `<span class="fup-badge${q.step === 3 ? " s3" : ""}">${q.step_label}</span>`;
+        row.innerHTML =
+          `<div class="who"><b>${escapeHtml(q.name || "(névtelen)")}</b>` +
+          `<span>${escapeHtml(q.email)} · ${q.days_since} napja</span></div>` +
+          badge +
+          `<button onclick="openDraft(${q.row})">Megnéz</button>`;
+        list.appendChild(row);
+      }
+    }
+
+    // Take a handled lead off the screen the instant it is handled.
+    //
+    // Deliberately NOT a loadFollowups() call. /followups re-runs the full
+    // Gmail reply sweep across every open thread before it answers, so
+    // refreshing after each send meant ~90 API calls PER SEND: that is what
+    // tripped the Gmail per-minute quota (403 rateLimitExceeded), and while
+    // the sweep ran the just-sent lead stayed on screen looking unsent,
+    // which is how the same person got a second follow-up.
+    function dropFollowupRow(row, remaining) {
+      const list = document.getElementById("fup-list");
+      const el = list.querySelector('[data-row="' + row + '"]');
+      if (el) el.remove();
+      const countEl = document.getElementById("fup-count");
+      const left = (typeof remaining === "number")
+        ? remaining
+        : Math.max(0, (parseInt(countEl.textContent, 10) || 1) - 1);
+      countEl.textContent = left;
+      if (!list.querySelector(".fup-row")) {
+        list.innerHTML = '<div class="fup-empty">Ma nincs esedékes utánkövetés.</div>';
+      }
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement("div");
+      d.textContent = s == null ? "" : s;
+      return d.innerHTML;
+    }
+
+    function showDelivery(d) {
+      const el = document.getElementById("bounce-warn");
+      if (!d || !d.message) { el.style.display = "none"; return; }
+      el.textContent = d.message;
+      el.classList.toggle("bad", d.level === "bad");
+      el.style.display = "block";
+    }
+
+    async function checkReplies() {
+      const btn = document.getElementById("fup-check-btn");
+      const status = document.getElementById("fup-status");
+      btn.disabled = true;
+      setStatus(status, "Szálak ellenőrzése a Gmailben...");
+      const res = await post("/check_replies", {});
+      btn.disabled = false;
+      if (res.error) { setStatus(status, res.error, true); return; }
+      let msg = `${res.checked} szál ellenőrizve, ${res.found} új válasz, ${res.bounces} visszapattanás.`;
+      if (res.bounces) {
+        msg += ` A visszapattant címek nem számítanak bele a napi keretbe (ma: ${res.sent_today}/${res.daily_cap}).`;
+      }
+      if (res.skipped_no_thread) {
+        msg += ` ${res.skipped_no_thread} lead kihagyva (a követés bevezetése előtt ment ki, nincs szál elmentve).`;
+      }
+      if (res.errors && res.errors.length) msg += " Hibák: " + res.errors.join(" | ");
+      setStatus(status, msg, !!(res.errors && res.errors.length));
+      showDelivery(res.delivery);
+      loadFollowups({sweep: false});
+      onAccountChange();
+    }
+
+    async function openDraft(row) {
+      const status = document.getElementById("fup-status");
+      setStatus(status, "Piszkozat készítése...");
+      const res = await post("/followup_preview", {row});
+      if (res.error) { setStatus(status, res.error, true); return; }
+      setStatus(status, "");
+      draftRow = res.row;
+      document.getElementById("f-name").textContent = res.name || "(névtelen)";
+      document.getElementById("f-step").textContent = res.step_label + " · " + res.account;
+      document.getElementById("f-email").textContent = res.email;
+      document.getElementById("f-subject").value = res.subject;
+      document.getElementById("f-body").value = res.body;
+      const w = document.getElementById("f-warn");
+      w.textContent = res.warning || "";
+      w.style.display = res.warning ? "block" : "none";
+      document.getElementById("fup-draft").style.display = "block";
+      document.getElementById("fup-draft").scrollIntoView({behavior: "smooth", block: "nearest"});
+    }
+
+    function closeDraft() {
+      draftRow = null;
+      document.getElementById("fup-draft").style.display = "none";
+    }
+
+    async function sendFollowup() {
+      if (draftRow === null) return;
+      const btn = document.getElementById("f-send-btn");
+      const status = document.getElementById("fup-status");
+      btn.disabled = true;
+      setStatus(status, "Küldés...");
+      const res = await post("/send_followup", {
+        row: draftRow,
+        email: document.getElementById("f-email").textContent,
+        subject: document.getElementById("f-subject").value,
+        body: document.getElementById("f-body").value,
+      });
+      btn.disabled = false;
+      if (res.error) { setStatus(status, res.error, true); return; }
+      setStatus(status, `Elküldve (${res.step}. utánkövetés). Ma: ${res.sent_today}/${res.daily_cap}.`);
+      dropFollowupRow(res.row, res.remaining);
+      closeDraft();
+      onAccountChange();
+    }
+
+    async function markReplied() {
+      if (draftRow === null) return;
+      const status = document.getElementById("fup-status");
+      const res = await post("/mark_replied", {row: draftRow});
+      if (res.error) { setStatus(status, res.error, true); return; }
+      setStatus(status, "Megjelölve válaszoltként, kikerült a sorból.");
+      const handled = draftRow;
+      closeDraft();
+      dropFollowupRow(handled, res.remaining);
+    }
+
+    async function onAccountChange() {
+      selectedAccount = document.getElementById("account-select").value;
+      const res = await post("/account_stats", {account: selectedAccount});
+      if (!res.error) updateStats(res);
+    }
+
+    let currentEmail = "";
+
+    async function nextLead() {
+      const btn = document.getElementById("next-btn");
+      const spinner = document.getElementById("spinner");
+      const status = document.getElementById("work-status");
+      btn.disabled = true;
+      spinner.style.display = "block";
+      document.getElementById("result").style.display = "none";
+      document.getElementById("send-note").style.display = "none";
+      // Groq's vision model latency is genuinely this variable in practice
+      // (measured 1.5s up to 66s on this account) — understating it as
+      // "~15-40s" is exactly what makes a slow-but-working 60s call feel
+      // like it's stuck.
+      setStatus(status, "Weboldal beolvasása, kép, nyitósor generálása... (max. kb. 70s, ne zárd be)");
+
+      const res = await post("/next", {});
+      spinner.style.display = "none";
+      btn.disabled = false;
+
+      if (res.error) { setStatus(status, res.error, true); return; }
+      setStatus(status, "");
+
+      const lead = res.lead;
+      currentEmail = lead.email;
+
+      // Blocked by a cheap pre-check (dead provider etc.) — no email was
+      // generated for this one, so there is nothing to send, only to skip.
+      const blocked = !!res.blocked;
+      document.getElementById("send-btn").disabled = blocked;
+      document.getElementById("skip-btn").textContent =
+        blocked ? "Kihagyás (ajánlott) →" : "Kihagyás";
+      document.getElementById("r-name").textContent = lead.name || "(névtelen cég)";
+      document.getElementById("r-city").textContent = lead.city || "";
+      document.getElementById("r-niche").textContent = lead.niche_resolved || lead.niche || "";
+      document.getElementById("r-email").textContent = lead.email;
+      document.getElementById("subject-input").value = lead.subject;
+      document.getElementById("body-input").value = lead.body;
+
+      // Grt. 6. § targeting check — see _address_risk() in hu_email_app.py.
+      // The bounce check is folded into the same box: both are "look before
+      // you send" facts about the address, and two stacked warning strips
+      // would just train the eye to skip them.
+      const warn = document.getElementById("addr-warn");
+      let parts = [];
+      if (blocked) parts.push(res.blocked);
+      if (res.email_on_site === "not_found") {
+        parts.push("Ez a cím NEM szerepel a beolvasott oldalon — lehet, hogy csak "
+                 + "tippelve lett. Nézd meg a kapcsolat oldalt küldés előtt: a nem "
+                 + "létező címre küldés rontja a domain hírnevét.");
+      } else if (res.email_on_site === "confirmed") {
+        parts.push("A cím szerepel a saját oldalukon, tehát létezik.");
+      }
+      if (res.address_warning) parts.push(res.address_warning);
+      warn.textContent = parts.join(" ");
+      warn.classList.toggle("bad", blocked);
+      warn.classList.toggle("ok", !blocked && parts.length > 0
+                                   && res.email_on_site === "confirmed"
+                                   && !res.address_warning);
+      warn.style.display = parts.length ? "block" : "none";
+
+      document.getElementById("result").style.display = "block";
+      document.getElementById("next-row").style.display = "none";  // hide Next until Send/Skip
+
+      updateStats(res);
+    }
+
+    async function sendLead() {
+      const status = document.getElementById("work-status");
+      const sendBtn = document.getElementById("send-btn");
+      sendBtn.disabled = true; document.getElementById("skip-btn").disabled = true;
+      setStatus(status, "Küldés...");
+
+      const res = await post("/send", {
+        email: currentEmail,
+        subject: document.getElementById("subject-input").value,
+        body: document.getElementById("body-input").value,
+        account: selectedAccount,
+      });
+      sendBtn.disabled = false; document.getElementById("skip-btn").disabled = false;
+
+      if (res.error) { setStatus(status, res.error, true); return; }
+      setStatus(status, "");
+      document.getElementById("send-note").style.display = "flex";
+      document.getElementById("next-row").style.display = "flex";
+      updateStats(res);
+    }
+
+    async function skipLead() {
+      const status = document.getElementById("work-status");
+      const res = await post("/skip", {});
+      if (res.error) { setStatus(status, res.error, true); return; }
+      document.getElementById("result").style.display = "none";
+      document.getElementById("next-row").style.display = "flex";
+      updateStats(res);
+      setStatus(status, "Kihagyva.");
+    }
+  </script>
+</body>
+</html>
