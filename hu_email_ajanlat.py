@@ -12,10 +12,11 @@ reads it in Excel before anything goes out. A row without one falls back to
 "Láttam a hirdetésüket, hogy [Pozíció] munkatársat keresnek."
 
 ONE BODY FOR EVERY TRADE
-Same text for all leads, only the trade word changes ("Nyomdáknak",
-"Generálkivitelezőknek"), said the way the trade names itself. Separate
-bodies per made-up category read like a consultant wrote them (user's call,
-2026-10-27).
+Same text for all leads. The per-row opener already names their trade, so
+the body says nothing trade-specific. Separate bodies per made-up category
+read like a consultant wrote them, and the body is kept short (about 85
+words): what it does, what they get, that it is built on their own
+calculation (user's call, 2026-10-27).
 
 "ALREADY BUILT" IS THE POINT
 Every lead's demo is built before their email goes out; the email only asks
@@ -37,36 +38,6 @@ import re
 import hu_email_gen as heg
 
 MAX_STEP = 2
-
-# (keyword in the sheet's Niche cell, how the email names the trade).
-# First match wins, so the more specific keyword goes first.
-_TRADE_DATIVE = [
-    ("nyomd",              "Nyomdáknak"),
-    ("nyílászáró",         "Nyílászárógyártóknak"),
-    ("kaputechn",          "Kaputechnikai cégeknek"),
-    ("bútor",              "Bútorgyártóknak"),
-    ("textil",             "Ponyva- és kárpitkészítőknek"),
-    ("elektronik",         "Elektronikai gyártóknak"),
-    ("acélszerkezet",      "Acélszerkezet-gyártóknak"),
-    ("fémszerkezet",       "Fémszerkezet-gyártóknak"),
-    ("lemezmegmunk",       "Lemezmegmunkáló cégeknek"),
-    ("automatiz",          "Automatizálással foglalkozó cégeknek"),
-    ("generálkivitel",     "Generálkivitelezőknek"),
-    ("épületgépész",       "Épületgépészeti cégeknek"),
-    ("csőszerel",          "Épületgépészeti cégeknek"),
-    ("villanyszerel",      "Villanyszerelő cégeknek"),
-    ("homlokzat",          "Homlokzatburkoló cégeknek"),
-    ("házépít",            "Házépítő cégeknek"),
-    ("irodaépít",          "Irodaépítéssel foglalkozó cégeknek"),
-    ("magasépít",          "Építőipari cégeknek"),
-    ("építőip",            "Építőipari cégeknek"),
-]
-
-
-def trade_dative(niche: str) -> str:
-    n = (niche or "").lower()
-    return next((d for k, d in _TRADE_DATIVE if k in n), "")
-
 
 _VOWELS = "aáeéiíoóöőuúüű"
 
@@ -119,28 +90,21 @@ def ajanlat_subject(position: str) -> str:
 
 
 def ajanlat_body(opener: str, first: str, niche: str = "") -> str:
-    trade = trade_dative(niche)
-    intro = (f"{trade} építek ilyen programokat." if trade
-             else "Ilyen programokat építek.")
     blocks = [
         f"Kedves {first}!" if first else "Jó napot kívánok!",
 
         opener + " Összeraktam Önöknek egy ajánlatkészítő programot, ami "
         "ebben a munkában segít.",
 
+        "A beérkező ajánlatkérésből elkészíti az ajánlat első változatát, a "
+        "kolléga pedig ellenőrzi és kiküldi. Ahol bizonytalan, ott szól. Így "
+        "akit most felvesznek, több ajánlatot ad ki, és a bonyolultabb "
+        "munkákra marad ideje.",
+
         # Sample prices said up front keeps "built for you" true: the shape
         # is theirs, the numbers come once they share them.
-        intro + " Minden cég máshogy számol, ezért az éles verziót mindig az "
-        "adott cég saját kalkulációjára építem, abból kiindulva, ahogy a "
-        "kollégák most dolgoznak. Egyelőre mintaárakkal működik.",
-
-        "A program a beérkező ajánlatkérésből elkészíti az ajánlat első "
-        "változatát, a kolléga pedig ellenőrzi és kiküldi. Ahol bizonytalan, "
-        "ott szól.",
-
-        # "kevesebbet gépel" undersold the engineers on the list.
-        "Így akit most felvesznek, kevesebb időt tölt ismétlődő munkával, "
-        "több ajánlatot ad ki, és a bonyolultabb munkákra marad ideje.",
+        "Egyelőre mintaárakkal működik. Az éles verziót az Önök saját "
+        "kalkulációjára építem, abból kiindulva, ahogy most számolnak.",
 
         "Csak megmutatnám, mást nem kérek. Elküldhetem?",
         "Ha nem érdekli, elég egy szó, és többé nem keresem.",
