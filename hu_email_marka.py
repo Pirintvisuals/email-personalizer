@@ -12,11 +12,11 @@ Personal hook, and read by a human in Excel before anything goes out (same
 idea as ajánlat mode: no AI writes copy at send time). A row without one
 falls back to "Láttam, hogy Önök {make} autókra szakosodtak."
 
-THE BODY is fixed text from the user (2026-11-04). The only changes from
-their draft, both agreed: the "Amíg árat számol..." paragraph is plural
-like the rest of the email, and the close says the demo is ALREADY BUILT
-and asks permission to send it (the user's point: everything is made for
-them, we only ask if we may send it). Do not edit the body without asking.
+THE BODY (user's direction, 2026-11-04): greeting, personal line, "I've
+built you a quoting program", one line on what it does, one line on why
+them, then ask permission to send it. Short, no over-explaining. Never call
+it free (it isn't) and no pilot/test-period framing. Do not edit the body
+without asking.
 
 SENDING RULES specific to this mode (enforced in hu_email_app.py):
   * plain text, no image, no link
@@ -113,20 +113,15 @@ def body(opener: str) -> str:
     return "\n\n".join([
         "Jó napot kívánok!",
         opener,
-        "Árajánlat-készítő programot fejlesztek autószervizeknek, és olyan "
-        "műhelyt keresek, ahol élesben kipróbálhatjuk. Azért Önöknek írok, "
-        "mert egy márkára szakosodott szervizben működik a legjobban: a "
-        "program motoronként megjegyzi, amit egyszer kiválasztottak, és minél "
-        "többször jön vissza ugyanaz a motor, annál kevesebbet kell beírni.",
-        "Átvizsgálás után a munkafelvevő beírja az alvázszámot és a munkát, a "
-        "program felteszi a szükséges kérdéseket, és összerakja a tételes "
-        "ajánlatot az Önök márkáival és munkadíjával. Mindig Önök nézik át, "
-        "mielőtt kimegy.",
-        "Amíg árat számolnak, nem szerelnek, és ezt az időt senki nem fizeti "
-        "ki. Ezt kapják vissza.",
-        "A tesztidőszak ingyenes, cserébe a visszajelzésüket kérném. Egy "
-        "kattintható bemutatót már összeraktam Önöknek. Elküldhetem?",
-        "Ha nem kéri, válaszoljon egy szóval, és többé nem keresem.",
+        "Összeraktam Önöknek egy árajánlat-készítő programot. Átvizsgálás "
+        "után a munkafelvevő beírja az alvázszámot és a munkát, a program "
+        "pedig elkészíti a tételes ajánlatot. Kiküldés előtt mindig Önök "
+        "nézik át.",
+        "Azért Önöknek készítettem, mert egy márkára szakosodott szervizben "
+        "működik a legjobban: amit egy motornál egyszer kiválasztottak, azt "
+        "megjegyzi, így legközelebb alig kell beírni valamit.",
+        "Elküldhetem?",
+        "Ha nem érdekli, elég egy szó, és többé nem keresem.",
         "Üdvözlettel:\nPirint Milán",
     ])
 
@@ -134,7 +129,7 @@ def body(opener: str) -> str:
 def followup_body() -> str:
     return "\n\n".join([
         "Jó napot kívánok!",
-        "Csak felhozom az előző levelem. Ha érdekli, elküldöm a bemutatót, "
+        "Csak felhozom az előző levelem. Ha érdekli, elküldöm a programot, "
         "amit Önöknek összeraktam. Ha nem, egy szó elég.",
         "Üdvözlettel:\nPirint Milán",
     ])
