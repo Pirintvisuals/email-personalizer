@@ -60,8 +60,11 @@ _EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 
 
 def subject_prefix(make_cell: str) -> str:
-    m = (make_cell or "").lower()
+    # "(+ Mercedes, Audi)" lists side makes; the subject names the main one.
+    m = re.sub(r"\(\+[^)]*\)", "", (make_cell or "")).lower()
     has = lambda *w: any(x in m for x in w)
+    if has("fiat", "alfa", "lancia"):
+        return "olasz autós "
     if has("transporter", "commercial"):
         return "VW-haszonjármű-"
     if has("gte"):
@@ -80,6 +83,8 @@ def subject_prefix(make_cell: str) -> str:
         return "Renault- és Dacia-"
     if has("toyota", "lexus"):
         return "Toyota- és Lexus-" if has("lexus") else "Toyota-"
+    if has("škoda", "skoda") and not has("vw", "volkswagen", "audi", "seat", "cupra"):
+        return "Škoda-"
     if has("vw", "volkswagen", "audi", "škoda", "skoda", "seat", "cupra"):
         return "VW-csoportos "
     for words, prefix in ((("bmw", "mini"), "BMW-"), (("opel",), "Opel-"),
@@ -99,7 +104,23 @@ def subject(make_cell: str) -> str:
 def make_label(make_cell: str) -> str:
     """Short make name for grouping in the summary ('BMW', 'VW-csoport')."""
     p = subject_prefix(make_cell).strip().rstrip("-").replace("- és ", "/")
-    return {"VW-csoportos": "VW-csoport", "francia autós": "Francia"}.get(p, p) or "?"
+    return {"VW-csoportos": "VW-csoport", "francia autós": "Francia",
+            "olasz autós": "Olasz"}.get(p, p) or "?"
+
+
+OPENERS_PATH = _HERE / "marka_openers.json"
+
+
+def openers() -> dict:
+    """address -> hand-checked opening line. Kept outside the leads sheet
+    because the lead finder rewrites that file in place (2026-11-04: it
+    added 24 rows and wiped the Nyitómondat column). The sheet's own
+    Nyitómondat cell still wins when it has one."""
+    try:
+        return {k.lower(): v for k, v in
+                json.loads(OPENERS_PATH.read_text(encoding="utf-8")).items()}
+    except (FileNotFoundError, ValueError):
+        return {}
 
 
 def fallback_opener(make_cell: str) -> str:
@@ -188,10 +209,40 @@ def add_dnc(email: str) -> None:
     _save_set(DNC_PATH, s)
 
 
-def add_contacted(email: str) -> None:
-    s = _load_set(CONTACTED_PATH)
-    s.add(email.strip().lower())
-    _save_set(CONTACTED_PATH, s)
+def contacted() -> dict:
+    """address -> {"sent": "Sent 2026-11-04 11:36 [landscale]",
+                   "thread": "<threadId>|<Message-ID>"}.
+
+    This file, not the sheet, is the record of who got a first email. The
+    sheet's markers can be lost (on 2026-11-04 all 29 were overwritten,
+    most likely by the sheet being saved from Excel after the app wrote it),
+    so on every load the app writes these back into the sheet (see
+    hu_email_app._reconcile_marka). Old files were a plain list of
+    addresses; those load as entries with no send data."""
+    try:
+        raw = json.loads(CONTACTED_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return {}
+    if isinstance(raw, list):
+        return {e.lower(): {} for e in raw}
+    return {k.lower(): v for k, v in raw.items()}
+
+
+def _write_contacted(d: dict) -> None:
+    CONTACTED_PATH.write_text(json.dumps(d, ensure_ascii=False, indent=1),
+                              encoding="utf-8")
+
+
+def add_contacted(email: str, sent: str = "", thread: str = "") -> None:
+    d = contacted()
+    d[email.strip().lower()] = {"sent": sent, "thread": thread}
+    _write_contacted(d)
+
+
+def update_contacted(email: str, **fields) -> None:
+    d = contacted()
+    d.setdefault(email.strip().lower(), {}).update(fields)
+    _write_contacted(d)
 
 
 def old_file_addresses(exclude: str = "") -> dict:
@@ -232,7 +283,7 @@ def contact_block(email: str, old: dict) -> str:
     e = (email or "").strip().lower()
     if e in dnc():
         return "Tiltólistán van (leiratkozott). Soha többé nem keressük."
-    if e in _load_set(CONTACTED_PATH):
+    if e in contacted():
         return "Ezt a címet már megkerestük egy korábbi márkaszervizes körben."
     if e in old:
         return f"Ez a cím szerepel egy régebbi magyar leadlistában ({old[e]}), nem írunk neki újra."
@@ -252,7 +303,9 @@ def process_lead(lead: dict) -> dict:
     if lead["blocked"]:
         lead["subject"] = lead["body"] = lead["opener"] = ""
         return lead
-    opener = (lead.get("opener_custom") or "").strip() or fallback_opener(lead.get("make", ""))
+    opener = ((lead.get("opener_custom") or "").strip()
+              or openers().get((lead.get("email") or "").strip().lower(), "")
+              or fallback_opener(lead.get("make", "")))
     lead["opener"] = opener
     lead["subject"] = subject(lead.get("make", ""))
     lead["body"] = body(opener)

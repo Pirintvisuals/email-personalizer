@@ -1003,6 +1003,50 @@ def _followup_queue(ws, cols) -> list:
     return out
 
 
+def _reconcile_marka(ws, cols) -> dict:
+    """Márka mode, on every load: make the sheet agree with the contacted
+    list, so an already-contacted lead never comes up again as a new email.
+
+      * on marka_contacted.json with send data, but the row lost its
+        markers -> write Sent / Szál / Követés back, so the follow-up and
+        the reply checks still work for it
+      * on the do-not-contact list, or in an older HU lead file, and not
+        yet handled -> "Skip (korábban megkeresve)", never shown
+    Rows that already carry a marker are left alone."""
+    book = marka.contacted()
+    dnc = marka.dnc()
+    old = _state.get("old_addrs") or {}
+    restored = skipped = 0
+    for r in ws.iter_rows(min_row=2):
+        if not _row_in_mode(r, cols):
+            continue
+        row = r[0].row
+        email = str(r[cols["email"]].value or "").strip().lower()
+        if "@" not in email:
+            continue
+        rec = book.get(email)
+        sent_cell = ws.cell(row=row, column=cols["sent"] + 1)
+        if rec and rec.get("sent"):
+            if not _SEND_TS_RE.match(str(sent_cell.value or "").strip()):
+                sent_cell.value = rec["sent"]
+                restored += 1
+            th = ws.cell(row=row, column=cols["thread"] + 1)
+            if not str(th.value or "").strip() and rec.get("thread"):
+                th.value = rec["thread"]
+            fu = ws.cell(row=row, column=cols["fups"] + 1)
+            if rec.get("fups") and len(str(rec["fups"])) > len(str(fu.value or "")):
+                fu.value = rec["fups"]
+        elif not _is_handled(str(sent_cell.value or "")) and (
+                email in dnc or email in book or email in old):
+            sent_cell.value = "Skip (korábban megkeresve)"
+            skipped += 1
+    if restored or skipped:
+        _save_wb()
+        print(f"  [marka] sheet repaired: {restored} sends restored, "
+              f"{skipped} earlier contacts skipped")
+    return {"restored": restored, "skipped": skipped}
+
+
 def _step_label(step: int) -> str:
     if _state.get("mode") == "marka":
         return marka.STEP_LABEL
@@ -1054,6 +1098,8 @@ def load():
                        "current_row": None, "mode": mode,
                        "old_addrs": (marka.old_file_addresses(exclude=path)
                                      if mode == "marka" else {})})
+        if mode == "marka":
+            _reconcile_marka(ws, cols)
         # Row-keyed cache is meaningless against a different sheet.
         _clear_prefetch()
         # Start generating immediately, so the first "Következő lead" click
@@ -1462,6 +1508,10 @@ def send_followup():
         marker = f"F{step} {datetime.now():%Y-%m-%d %H:%M} [{account}]"
         ws.cell(row=row, column=cols["fups"] + 1,
                 value=f"{cell}; {marker}" if cell else marker)
+        if _state.get("mode") == "marka":
+            # Same reason as the first send: a lost sheet must never lead
+            # to a second follow-up.
+            marka.update_contacted(to, fups=f"{cell}; {marker}" if cell else marker)
         _save_wb()
 
         return jsonify({"ok": True, "row": row, "step": step, "account": account,
@@ -1549,13 +1599,17 @@ def send():
             hero_image=_state["current_hero"], account=account)
         msg_id = res["id"]
         _log_send(account)
+        sent_marker = f"Sent {datetime.now():%Y-%m-%d %H:%M} [{account}]"
         if _state.get("mode") == "marka":
-            marka.add_contacted(to)
+            # Written BEFORE the sheet, so even if the sheet save fails or is
+            # later overwritten, the send is on record (see _reconcile_marka).
+            marka.add_contacted(to, sent_marker,
+                                f"{res.get('thread_id','')}|{res.get('message_id','')}")
 
         # Timestamped + account-tagged marker so the daily cap can tell
         # landscale's history apart from gmail's — see _todays_send_times /
         # _send_gate / _marker_account.
-        _mark(row, f"Sent {datetime.now():%Y-%m-%d %H:%M} [{account}]")
+        _mark(row, sent_marker)
         # Thread + Message-ID, so the follow-up engine can later ask whether
         # they replied and can post its follow-ups INTO this conversation
         # rather than starting a new one. Stored on the same row, written
