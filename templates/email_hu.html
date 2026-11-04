@@ -63,6 +63,8 @@
       font-size: 0.9rem; outline: none; transition: border-color .2s;
     }
     select#account-select:focus, select#mode-select:focus { border-color: #4ade80; }
+    .rep-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .rep-btns button { padding: 6px 10px; font-size: 12px; }
 
     .status { text-align: center; font-size: 0.85rem; color: #f59e0b; min-height: 20px; margin-top: 10px; }
     .status.err { color: #f87171; }
@@ -174,6 +176,7 @@
         <option value="mech" selected>Autószerelők</option>
         <option value="builders">Építőipar (eredeti levél)</option>
         <option value="ajanlat">Ajánlatkészítő hirdetések</option>
+        <option value="marka">Márkaszervizek</option>
       </select>
     </div>
     <label for="path-input">Excel fájl</label>
@@ -244,6 +247,19 @@
     </div>
   </div>
 
+  <!-- Márka mode only: tag every reply. Opt-out goes on the do-not-contact list. -->
+  <div class="card" id="rep-card" style="display:none">
+    <div class="fup-head">
+      <div>
+        <div class="fup-title">Válaszok</div>
+        <div class="fup-sub">Jelöld meg, milyen választ kaptál. A leiratkozó tiltólistára kerül.</div>
+      </div>
+      <div class="fup-count" id="rep-count">0</div>
+    </div>
+    <div class="status" id="rep-status"></div>
+    <div id="rep-list"></div>
+  </div>
+
   <div class="card" id="worker-card" style="display:none">
     <div class="actions" id="next-row">
       <button id="next-btn" onclick="nextLead()">Következő lead →</button>
@@ -272,6 +288,7 @@
 
       <div class="actions">
         <button id="send-btn" onclick="sendLead()">Küldés →</button>
+        <button id="test-btn" onclick="sendTest()">Teszt magamnak</button>
         <button id="skip-btn" onclick="skipLead()">Kihagyás</button>
       </div>
       <div class="send-note" id="send-note">Elküldve!</div>
@@ -328,6 +345,7 @@
       mech:     "C:\\Users\\pirin\\Downloads\\hun_all_email_leads 10 19.xlsx",
       builders: "C:\\Users\\pirin\\Downloads\\hun_all_email_leads 10 19.xlsx",
       ajanlat:  "C:\\Users\\pirin\\Downloads\\ajanlatkeszito_leadek.xlsx",
+      marka:    "C:\\Users\\pirin\\Downloads\\leads-markaszerviz-2026-11-04.xlsx",
     };
 
     // Each campaign remembers its own Excel path, so switching the dropdown
@@ -342,6 +360,7 @@
       }
       document.getElementById("worker-card").style.display = "none";
       document.getElementById("fup-card").style.display = "none";
+      document.getElementById("rep-card").style.display = "none";
       document.getElementById("stats").style.display = "none";
     }
 
@@ -375,6 +394,8 @@
       document.getElementById("worker-card").style.display = "block";
       document.getElementById("fup-card").style.display = "block";
       loadFollowups();
+      document.getElementById("rep-card").style.display = (mode === "marka") ? "block" : "none";
+      if (mode === "marka") loadReplies();
     }
 
     // ── Follow-up queue ───────────────────────────────────────────────
@@ -422,6 +443,7 @@
       }
 
       showDelivery(res.delivery);
+      if (document.getElementById("mode-select").value === "marka") loadReplies();
 
       const list = document.getElementById("fup-list");
       list.innerHTML = "";
@@ -616,6 +638,7 @@
         parts.push("A cím szerepel a saját oldalukon, tehát létezik.");
       }
       if (res.address_warning) parts.push(res.address_warning);
+      if (lead.notes) parts.push("Megjegyzés a listából: " + lead.notes);
       warn.textContent = parts.join(" ");
       warn.classList.toggle("bad", blocked);
       warn.classList.toggle("ok", !blocked && parts.length > 0
@@ -648,6 +671,58 @@
       document.getElementById("send-note").style.display = "flex";
       document.getElementById("next-row").style.display = "flex";
       updateStats(res);
+    }
+
+    async function sendTest() {
+      const status = document.getElementById("work-status");
+      const btn = document.getElementById("test-btn");
+      btn.disabled = true;
+      setStatus(status, "Teszt küldése...");
+      const res = await post("/send_test", {
+        subject: document.getElementById("subject-input").value,
+        body: document.getElementById("body-input").value,
+        account: selectedAccount,
+      });
+      btn.disabled = false;
+      if (res.error) { setStatus(status, res.error, true); return; }
+      setStatus(status, `Teszt elküldve ide: ${res.to}. A lead nem kapott semmit.`);
+    }
+
+    // ── Replies (márka mode) ──────────────────────────────────────────
+    async function loadReplies() {
+      const res = await post("/replies", {});
+      const list = document.getElementById("rep-list");
+      if (res.error) { setStatus(document.getElementById("rep-status"), res.error, true); return; }
+      const reps = res.replies || [];
+      document.getElementById("rep-count").textContent = reps.filter(r => !r.type).length;
+      list.innerHTML = "";
+      if (!reps.length) {
+        list.innerHTML = '<div class="fup-empty">Még nincs válasz.</div>';
+        return;
+      }
+      for (const r of reps) {
+        const el = document.createElement("div");
+        el.className = "fup-row";
+        let btns = "";
+        for (const [k, label] of Object.entries(res.types || {})) {
+          btns += `<button onclick="setReplyType(${r.row}, '${k}')">${escapeHtml(label)}</button>`;
+        }
+        el.innerHTML =
+          `<div class="who"><b>${escapeHtml(r.name || "(névtelen)")}</b>` +
+          `<span>${escapeHtml(r.email)}${r.type ? " · " + escapeHtml(r.type) + " → " + escapeHtml(r.next) : ""}</span></div>` +
+          `<div class="rep-btns">${btns}</div>`;
+        list.appendChild(el);
+      }
+    }
+
+    async function setReplyType(row, type) {
+      const status = document.getElementById("rep-status");
+      if (type === "optout" && !confirm("Végleg tiltólistára teszed ezt a címet?")) return;
+      const res = await post("/set_reply_type", {row, type});
+      if (res.error) { setStatus(status, res.error, true); return; }
+      setStatus(status, `Mentve: ${res.type} → ${res.next}`);
+      loadReplies();
+      loadFollowups({sweep: false});
     }
 
     async function skipLead() {
