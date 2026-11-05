@@ -224,9 +224,14 @@ def mech_body(opener: str, first: str, city: str = "", from_site: bool = True) -
     copy says "Összeraktam" for every lead."""
     blocks = [f"Kedves {first}!" if first else "Jó napot kívánok!"]
     blocks.append(opener)
+    # The opener names side services (klíma, gumi) as proof we looked, and a
+    # shop read the demo as a quote tool for THOSE, which run off a fixed
+    # price table (Dubnicz, 2026-11-05). So the demo line says what it is
+    # for: repairs priced from parts and labour, not the fixed-price work.
     blocks += [
         "Összeraktam Önnek egy árajánlatkészítő demót, kifejezetten az Ön "
-        "szervizére szabva.",
+        "szervizére szabva. Nem a fix díjas munkákra szól, hanem a "
+        "javításokra, ahol az ár alkatrészből és munkadíjból áll össze.",
 
         "Nem az ügyfél tölti ki, és nem ő mondja a hibát. Átvizsgálás után a "
         "munkafelvevő megadja az autót és a munkát, a program pedig "
