@@ -64,7 +64,15 @@
     }
     select#account-select:focus, select#mode-select:focus { border-color: #4ade80; }
     .rep-btns { display: flex; gap: 6px; flex-wrap: wrap; }
-    .rep-btns button { padding: 6px 10px; font-size: 12px; }
+    .rep-btns button {
+      padding: 6px 10px; font-size: 12px; border-radius: 7px;
+      background: #2a2f42; color: #c7d2e6; border: 1px solid transparent;
+    }
+    .rep-btns button.k-interested { color: #4ade80; }
+    .rep-btns button.k-not_now    { color: #fbbf24; }
+    .rep-btns button.k-no         { color: #94a3b8; }
+    .rep-btns button.k-optout     { color: #f87171; }
+    .rep-btns button.active       { border-color: currentColor; background: #1e2433; }
 
     .status { text-align: center; font-size: 0.85rem; color: #f59e0b; min-height: 20px; margin-top: 10px; }
     .status.err { color: #f87171; }
@@ -157,6 +165,7 @@
     }
     #fup-draft { margin-top: 18px; border-top: 1px solid #2e3650; padding-top: 18px; }
     .actions { display: flex; gap: 10px; margin-top: 22px; }
+    #fup-check-btn, #fup-refresh-btn { padding: 10px 16px; background: #2a2f42; color: #c7d2e6; }
     .spinner {
       display: none; width: 16px; height: 16px; border: 2px solid #2e3650;
       border-top-color: #4ade80; border-radius: 50%; animation: spin .7s linear infinite;
@@ -251,8 +260,8 @@
   <div class="card" id="rep-card" style="display:none">
     <div class="fup-head">
       <div>
-        <div class="fup-title">Válaszok</div>
-        <div class="fup-sub">Jelöld meg, milyen választ kaptál. A leiratkozó tiltólistára kerül.</div>
+        <div class="fup-title">Akik már válaszoltak</div>
+        <div class="fup-sub">Ők nem kapnak emlékeztetőt. Itt csak azt jelölöd, mit válaszoltak: Érdekli (küldd a bemutatót), Most nem (később kézzel), Nem (lezárva), Leiratkozott (tiltólistára kerül).</div>
       </div>
       <div class="fup-count" id="rep-count">0</div>
     </div>
@@ -345,15 +354,20 @@
       mech:     "C:\\Users\\pirin\\Downloads\\hun_all_email_leads 10 19.xlsx",
       builders: "C:\\Users\\pirin\\Downloads\\hun_all_email_leads 10 19.xlsx",
       ajanlat:  "C:\\Users\\pirin\\Downloads\\ajanlatkeszito_leadek.xlsx",
-      marka:    "C:\\Users\\pirin\\Downloads\\leads-markaszerviz-2026-11-04.xlsx",
+      // Merged file: the 11-04 list with its send history, plus the new rows.
+      marka:    "C:\\Users\\pirin\\Downloads\\leads-markaszerviz-merged.xlsx",
     };
+
+    // A path remembered from before a list was replaced; the default wins over it.
+    const RETIRED_PATHS = ["leads-markaszerviz-2026-11-04.xlsx"];
 
     // Each campaign remembers its own Excel path, so switching the dropdown
     // swaps the sheet instead of loading the builders' list as mechanics.
     function onModeChange() {
       const mode = document.getElementById("mode-select").value;
       try {
-        const saved = localStorage.getItem("path4_" + mode);
+        let saved = localStorage.getItem("path4_" + mode);
+        if (saved && RETIRED_PATHS.some(f => saved.endsWith(f))) saved = null;
         document.getElementById("path-input").value = saved || DEFAULT_PATHS[mode];
       } catch (e) {
         document.getElementById("path-input").value = DEFAULT_PATHS[mode];
@@ -705,7 +719,8 @@
         el.className = "fup-row";
         let btns = "";
         for (const [k, label] of Object.entries(res.types || {})) {
-          btns += `<button onclick="setReplyType(${r.row}, '${k}')">${escapeHtml(label)}</button>`;
+          const on = r.type === label ? " active" : "";
+          btns += `<button class="k-${k}${on}" onclick="setReplyType(${r.row}, '${k}')">${escapeHtml(label)}</button>`;
         }
         el.innerHTML =
           `<div class="who"><b>${escapeHtml(r.name || "(névtelen)")}</b>` +

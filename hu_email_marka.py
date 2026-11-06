@@ -23,20 +23,19 @@ SENDING RULES specific to this mode (enforced in hu_email_app.py):
   * never a second first-email to any address: a global contacted list
     (marka_contacted.json) plus every address in the older HU lead files
   * opt-outs go on a permanent do-not-contact list (do_not_contact.json)
-  * ONE follow-up, 5 working days after the first email, in the same thread
+  * three follow-ups on the shared hu_followup schedule (+3 / +7 / +14 days),
+    in the same thread, only to leads that have not replied (user,
+    2026-11-06: same as the autószerelő sender, replacing the single
+    +5-working-day reminder)
 """
 
 import json
 import os
+import random
 import re
-from datetime import date, timedelta
 from pathlib import Path
 
 import openpyxl
-
-MAX_STEP = 1
-FOLLOWUP_WORKDAYS = 5
-STEP_LABEL = f"Emlékeztető (+{FOLLOWUP_WORKDAYS} munkanap)"
 
 OK_CONFIDENCE = ("high", "medium")
 
@@ -147,32 +146,47 @@ def body(opener: str) -> str:
     ])
 
 
-def followup_body() -> str:
-    return "\n\n".join([
-        "Jó napot kívánok!",
-        "Csak felhozom az előző levelem. Ha érdekli, elküldöm a programot, "
-        "amit Önöknek összeraktam. Ha nem, egy szó elég.",
-        "Üdvözlettel:\nPirint Milán",
-    ])
+# ── Follow-ups: steps 1-3 of hu_followup.SCHEDULE (+3 / +7 / +14 days) ────
+# Same shape as hu_email_mech.followup_body (remind, a question, close), but
+# about the program, addressed to the workshop (Önök), signed like the
+# first email.
 
-
-# ── Follow-up timing: working days, not calendar days ─────────────────────
-
-def workdays_between(start: date, end: date) -> int:
-    """Mon-Fri days after `start`, up to and including `end`."""
-    n, d = 0, start
-    while d < end:
-        d += timedelta(days=1)
-        if d.weekday() < 5:
-            n += 1
-    return n
-
-
-def due_step(first_sent: date, steps_done: int, today: date = None) -> int:
-    if first_sent is None or steps_done >= MAX_STEP:
-        return 0
-    today = today or date.today()
-    return 1 if workdays_between(first_sent, today) >= FOLLOWUP_WORKDAYS else 0
+def followup_body(step: int) -> str:
+    if step == 1:
+        blocks = [
+            random.choice([
+                "Csak felhozom az előző levelemet, hátha elsüllyedt.",
+                "Csak visszajelzek a múltkori levelemre, hátha lecsúszott.",
+            ]),
+            random.choice([
+                "A program, amit Önöknek összeraktam, megvan. Elküldhetem?",
+                "A program megvan Önöknek, csak szólniuk kell. Elküldhetem?",
+            ]),
+        ]
+    elif step == 2:
+        blocks = [
+            random.choice([
+                "Egy dolgot kérdeznék: hetente hány árajánlatot írnak olyannak, "
+                "akiből végül nem lesz munka?",
+                "Egy kérdés csak: hány ajánlatot számolnak ki egy héten, amiből "
+                "végül nem lesz javítás?",
+            ]),
+            "Ez az az idő, amit senki nem fizet ki. Ezt veszi le Önökről.",
+            "Elküldhetem a programot?",
+        ]
+    else:
+        blocks = [
+            random.choice([
+                "Nem szeretnék tolakodni, ez az utolsó levelem ebben az ügyben.",
+                "Nem akarok tolakodni, ezért ez az utolsó levelem emiatt.",
+            ]),
+            random.choice([
+                "Ha most nem aktuális, az teljesen rendben van.",
+                "Ha most nem téma, azt is teljesen megértem.",
+            ]),
+            "Ha később mégis jól jönne, elég egy szó, és küldöm a programot.",
+        ]
+    return "\n\n".join(["Jó napot kívánok!", *blocks, "Üdvözlettel:\nPirint Milán"])
 
 
 # ── Reply types and what happens next ─────────────────────────────────────

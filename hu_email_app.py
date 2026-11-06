@@ -395,10 +395,7 @@ _MECH_NICHE_WORDS = ("autószerel", "autoszerel", "autószerviz", "autoszerviz",
 
 
 def _max_step() -> int:
-    """Last follow-up step for the current mode. Ajánlat stops after two,
-    márka after one."""
-    if _state.get("mode") == "marka":
-        return marka.MAX_STEP
+    """Last follow-up step for the current mode. Ajánlat stops after two."""
     return ajanlat.MAX_STEP if _state.get("mode") == "ajanlat" else hu_followup.MAX_STEP
 
 
@@ -975,11 +972,8 @@ def _followup_queue(ws, cols) -> list:
         except ValueError:
             continue
         done = _steps_done(ws, cols, row)
-        if _state.get("mode") == "marka":
-            step = marka.due_step(first_sent, done)
-        else:
-            step = hu_followup.due_step(first_sent, done,
-                                        last_followup=_last_followup_date(ws, cols, row))
+        step = hu_followup.due_step(first_sent, done,
+                                    last_followup=_last_followup_date(ws, cols, row))
         if not step:
             continue
         # Ajánlat mode sends two follow-ups, not the shared schedule's three.
@@ -1048,8 +1042,6 @@ def _reconcile_marka(ws, cols) -> dict:
 
 
 def _step_label(step: int) -> str:
-    if _state.get("mode") == "marka":
-        return marka.STEP_LABEL
     return hu_followup.step_label(step)
 
 
@@ -1216,7 +1208,7 @@ def _check_replies_sweep(ws, cols) -> dict:
         m = _SEND_TS_RE.match(str(r[cols["sent"]].value or "").strip())
         if not m or _has_replied(ws, cols, row) or _has_bounced(ws, cols, row):
             continue
-        # Márka mode keeps watching after its one follow-up: a reply that
+        # Márka mode keeps watching after its last follow-up: a reply that
         # comes in a week later still has to count in the reply rate and
         # still has to stop us writing again.
         if _state.get("mode") != "marka" and _steps_done(ws, cols, row) >= _max_step():
@@ -1278,11 +1270,9 @@ def followups():
             "ok": True, "queue": queue, "count": len(queue),
             "needs_reauth": needs_auth,
             "delivery": _delivery_stats(ws, cols),
-            "schedule": ([{"step": 1, "days": marka.FOLLOWUP_WORKDAYS,
-                           "label": "Egy emlékeztető, munkanap:"}]
-                         if _state.get("mode") == "marka" else
-                         [{"step": s, "days": d, "label": l}
-                          for s, d, l in hu_followup.SCHEDULE]),
+            "schedule": [{"step": s, "days": d, "label": l}
+                         for s, d, l in hu_followup.SCHEDULE
+                         if s <= _max_step()],
             "auto_check": sweep,
         })
     except Exception as e:
@@ -1401,7 +1391,7 @@ def followup_preview():
             "email": str(ws.cell(row=row, column=cols["email"] + 1).value or ""),
             "name": name, "account": account,
             "subject": subject,
-            "body": (marka.followup_body() if _state.get("mode") == "marka"
+            "body": (marka.followup_body(step) if _state.get("mode") == "marka"
                      else mech.followup_body(step, first) if _state.get("mode") == "mech"
                      else ajanlat.followup_body(
                          step, first,
