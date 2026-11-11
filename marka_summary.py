@@ -2,7 +2,7 @@
 Márkaszerviz campaign summary: sent, reply rate, positive reply rate,
 overall, by make and by city.
 
-    py marka_summary.py                      # every leads-markaszerviz-*.xlsx in Downloads
+    py marka_summary.py                      # every leads-markaszerviz-*.xlsx in Asztali gép/Leads/Hungary
     py marka_summary.py path\\to\\file.xlsx   # one or more specific files
 
 Reads only what the sender writes into the sheet: "Elküldve?" (Sent ...),
@@ -73,7 +73,7 @@ def table(title, groups):
 
 
 def main():
-    files = sys.argv[1:] or sorted(glob.glob(str(Path.home() / "Downloads" / "leads-markaszerviz-*.xlsx")))
+    files = sys.argv[1:] or sorted(glob.glob(str(Path.home() / "OneDrive" / "Asztali gép" / "Leads" / "Hungary" / "leads-markaszerviz-*.xlsx")))
     files = [f for f in files if "backup" not in f.lower()]
     if not files:
         print("Nem találok leads-markaszerviz-*.xlsx fájlt.")

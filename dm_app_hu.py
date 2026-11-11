@@ -22,7 +22,7 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
 
 import os
 os.environ.setdefault("CDP_PORT", "9223")
-os.environ.setdefault("DEFAULT_EXCEL", r"C:\Users\pirin\Downloads\hungary_leads_3niches 08 25.xlsx")
+os.environ.setdefault("DEFAULT_EXCEL", r"C:\Users\pirin\OneDrive\Asztali gép\Leads\Hungary\hungary_leads_3niches 08 25.xlsx")
 
 import random
 import re as _re

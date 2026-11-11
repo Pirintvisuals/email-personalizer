@@ -2,7 +2,7 @@
 
 Hand this whole file to a fresh chat. It is self-contained.
 
-Working directory: `C:\Users\pirin\OneDrive\Mellékletek\personalized dm\`
+Working directory: `C:\Users\pirin\OneDrive\Saját projektek\personalized dm\`
 
 ---
 

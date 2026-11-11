@@ -256,7 +256,7 @@ MECH_DEFAULT_EXCEL = os.environ.get(
     # 2026-10-06: new Facebook mechanics batch. The workbook opens on its
     # "New FB mechanics" sheet (the loader reads the active sheet). The old
     # 200-lead list still holds the follow-ups for its own sends.
-    "C:/Users/pirin/Downloads/hun_facebook_dm_leads 10. 06.xlsx")
+    "C:/Users/pirin/OneDrive/Asztali gép/Leads/Hungary/hun_facebook_dm_leads 10. 06.xlsx")
 
 _NAME_HINTS = ("szerel", "mechanic", "auto", "autó")
 

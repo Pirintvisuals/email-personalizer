@@ -94,6 +94,6 @@ for i, w in enumerate(col_widths, 1):
 ws.freeze_panes = 'A2'
 ws.auto_filter.ref = 'A1:I' + str(len(leads) + 1)
 
-path = r'C:\Users\pirin\OneDrive\Mellékletek\personalized dm\outreach_tracker.xlsx'
+path = r'C:\Users\pirin\OneDrive\Saját projektek\personalized dm\outreach_tracker.xlsx'
 wb.save(path)
 print('Saved:', path)
