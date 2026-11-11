@@ -6,14 +6,13 @@ builders and cost-estimating offices, anyone who prices whole buildings
 from plans. Input is any .xlsx with an email column; default path is
 Leads\\Hungary\\leads-tervolvaso.xlsx.
 
-THE OFFER: the plan-reading takeoff tool is still in development, so the
-email recruits 2-3 test partners, it does not sell a finished product.
-CTA = a free trial on one of their own CLOSED projects: they send the plans
-and their own quantities, we run it, compare line by line. If it matches
-and saves time, discounted partner price; if not, no obligation.
-Rules from the brief: write to the owner, no numbers/percentages, never call
-it finished, no client references, "AI" not mentioned, one light ask,
-4-6 sentences.
+THE OFFER (user, 2026-11-11): a 2-minute video of the program working on a
+real family house's plans, offered right at the top of the email; the ask
+is "Elküldhetem a videót?". Still says the program is in development
+("amit fejlesztek"). The building in the how-it-works line is per lead
+(sheet column "Épülettípus": "egy társasház", "egy sorház vagy ikerház"),
+default "egy ház". Do not send until the video exists.
+No numbers/percentages, no client references, "AI" not mentioned.
 
 Everything else is Márka mode, unchanged: plain text, no link, no image;
 never a second first email (own terv_contacted.json + the shared
@@ -55,20 +54,24 @@ def fallback_opener(_niche: str = "") -> str:
 
 # ── The email ─────────────────────────────────────────────────────────────
 
-def body(opener: str) -> str:
+DEFAULT_BUILDING = "egy ház"
+
+
+def body(opener: str, building: str = "") -> str:
+    """building: what this lead builds, indefinite singular ("egy társasház",
+    "egy sorház vagy ikerház"), from the sheet's Épülettípus column."""
+    building = (building or "").strip() or DEFAULT_BUILDING
     return "\n\n".join([
         "Jó napot kívánok!",
         opener,
-        "Egy programot fejlesztek, ami a ház tervrajzaiból (alaprajz, "
-        "metszetek, homlokzatok) elkészíti a mennyiségkimutatás első "
-        "változatát, az Önök saját tételeivel és formátumában. Minden szám "
-        "mellé odaírja, melyik tervlapról jött, és külön jelzi, ami hiányzik "
-        "vagy ellentmond, így a kollégájuk nem nulláról mér fel, hanem "
+        "Készítettem egy 2 perces videót egy programról, amit fejlesztek: "
+        "egy valódi családi ház tervein mutatja meg, hogyan működik.",
+        f"A program {building} tervrajzaiból (alaprajz, metszetek, "
+        "homlokzatok) elkészíti a mennyiségkimutatás első változatát. Minden "
+        "szám mellé odaírja, melyik tervlapról jött, és külön jelzi, ami "
+        "hiányzik vagy ellentmond. Így a kolléga nem nulláról mér fel, hanem "
         "ellenőriz.",
-        "Most 2-3 céggel próbálom ki egy már lezárt projektjükön: elküldik a "
-        "terveket és az akkori mennyiségeiket, én lefuttatom, és tételről "
-        "tételre összevetjük. Kötelezettség nélkül.",
-        "Érdekelné egy ingyenes próba egy már lezárt projektjükön?",
+        "Elküldhetem a videót?",
         "Ha nem érdekli, elég egy szó, és többé nem keresem.",
         "Üdvözlettel:\nPirint Milán",
     ])
@@ -84,23 +87,22 @@ def followup_body(step: int) -> str:
                 "Csak visszajelzek a múltkori levelemre, hátha lecsúszott.",
             ]),
             random.choice([
-                "Még keresek 1-2 céget, akiknek egy lezárt projektjükön ingyen "
-                "lefuttatom a tervből készülő mennyiségkimutatást. Érdekelné?",
-                "A próbára még van hely: egy lezárt projektjük terveiből "
-                "elkészítem a kimutatást, és összevetjük az Önökével. Érdekelné?",
+                "A 2 perces videó, amin a program egy valódi ház tervein "
+                "dolgozik, megvan. Elküldhetem?",
+                "A videó megvan, 2 perc az egész. Elküldhetem?",
             ]),
         ]
     elif step == 2:
         blocks = [
             random.choice([
-                "Egy kérdést hadd tegyek fel: egy családi ház terveinek "
-                "felmérése most mennyi időt visz el Önöknél?",
+                "Egy kérdést hadd tegyek fel: egy ház terveinek felmérése "
+                "most mennyi időt visz el Önöknél?",
                 "Egy kérdés csak: mennyi idő most Önöknél, mire egy ház "
                 "terveiből kész a mennyiségkimutatás?",
             ]),
-            "A próba erre ad választ, az Önök saját, már lezárt projektjén, "
-            "tételről tételre.",
-            "Érdekelné?",
+            "A videóban látszik, mennyi marad ebből, ha a program végzi az "
+            "első kört, és a kolléga csak ellenőriz.",
+            "Elküldhetem?",
         ]
     else:
         blocks = [
@@ -112,7 +114,7 @@ def followup_body(step: int) -> str:
                 "Ha most nem aktuális, az teljesen rendben van.",
                 "Ha most nem téma, azt is teljesen megértem.",
             ]),
-            "Ha később kipróbálnák egy lezárt projekten, elég egy szó.",
+            "Ha később mégis jól jönne, elég egy szó, és küldöm a videót.",
         ]
     return "\n\n".join(["Jó napot kívánok!", *blocks, "Üdvözlettel:\nPirint Milán"])
 
@@ -120,7 +122,7 @@ def followup_body(step: int) -> str:
 # ── Reply types and what happens next ─────────────────────────────────────
 
 REPLY_TYPES = {
-    "interested": ("Érdekli",      "Tervek + saját mennyiségek bekérése"),
+    "interested": ("Érdekli",      "Videó elküldése"),
     "not_now":    ("Most nem",     "Később újra, kézzel"),
     "no":         ("Nem",          "Lezárva"),
     "optout":     ("Leiratkozott", "Lezárva, tiltólistán"),
@@ -195,6 +197,6 @@ def process_lead(lead: dict) -> dict:
               or fallback_opener(lead.get("niche", "")))
     lead["opener"] = opener
     lead["subject"] = subject()
-    lead["body"] = body(opener)
+    lead["body"] = body(opener, lead.get("building", ""))
     print(f"    -> {opener[:90]}")
     return lead

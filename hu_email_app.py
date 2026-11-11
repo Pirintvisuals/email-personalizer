@@ -320,7 +320,9 @@ def _load_excel(path: str, mode: str = "builders"):
     # Ajánlat mode only: the job ad's position and what they quote for.
     for key, needles in (("position",   ("pozíció", "pozicio", "position")),
                          ("quote_what", ("mit árajánlatoz", "mit arajanlatoz")),
-                         ("opener_custom", ("nyitómondat", "nyitomondat"))):
+                         ("opener_custom", ("nyitómondat", "nyitomondat")),
+                         # Tervolvasó mode: what this lead builds ("egy társasház").
+                         ("building", ("épülettípus", "epulettipus"))):
         idx = next((i for i, h in enumerate(headers) if any(n in h for n in needles)), None)
         if idx is not None:
             cols[key] = idx
@@ -454,7 +456,7 @@ def _upcoming_leads(ws, cols, limit=6) -> list:
             "source": v("source"),
             "position": v("position"), "quote_what": v("quote_what"),
             "opener_custom": v("opener_custom"),
-            "make": v("make"), "notes": v("notes"),
+            "make": v("make"), "notes": v("notes"), "building": v("building"),
         })
         if len(out) >= limit:
             break
@@ -492,6 +494,7 @@ def _next_lead(ws, cols, skip_row=None) -> dict | None:
             "opener_custom": v("opener_custom"),
             "make":    v("make"),
             "notes":   v("notes"),
+            "building": v("building"),
         }
     return None
 
