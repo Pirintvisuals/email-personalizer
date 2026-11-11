@@ -45,6 +45,16 @@ import hu_followup               # follow-up copy + schedule (no I/O of its own)
 import hu_email_mech as mech     # Autószerelő mode: its own opener, body, follow-ups
 import hu_email_ajanlat as ajanlat   # Job-ad mode: opener from the ad, no scraping
 import hu_email_marka as marka       # Single-make workshops: opener from the sheet, plain text
+import hu_email_terv as terv         # Plan-reading takeoff: test-partner recruiting, plain text
+
+# Modes that run on the márka machinery (never-twice list, reply tagging,
+# 3 follow-ups). Only the text and the sheet differ between them.
+_BOOK_MODES = {"marka": marka, "terv": terv}
+
+
+def _book():
+    """The campaign module for the current mode, or None."""
+    return _BOOK_MODES.get(_state.get("mode"))
 import gmail_send                # real Gmail API sending, hero image included
 import dm_app                    # only for copy_to_clipboard
 
@@ -351,7 +361,7 @@ def _load_excel(path: str, mode: str = "builders"):
             added = True
         cols[key] = idx
     # Márka mode tracks what kind of reply came back and what happens next.
-    if mode == "marka":
+    if mode in _BOOK_MODES:
         for key, title, needles in (
             ("reply_type", "Válasz típusa",   ("válasz típus", "valasz tipus", "reply type")),
             ("next_step",  "Következő lépés", ("következő lépés", "kovetkezo lepes", "next step")),
@@ -406,12 +416,12 @@ def _row_in_mode(ws_row, cols) -> bool:
     reaches the other trade. Sheets with no Niche column are all one mode.
     Ajánlat mode only sees rows with a Pozíció, the one fact its opener needs."""
     ni = cols.get("niche")
-    if _state.get("mode") == "marka":
+    if _book():
         # Only rows the lead finder rated high or medium.
         ci = cols.get("confidence")
         if ci is None:
             return True
-        return str(ws_row[ci].value or "").strip().lower() in marka.OK_CONFIDENCE
+        return str(ws_row[ci].value or "").strip().lower() in _book().OK_CONFIDENCE
     if _state.get("mode") == "ajanlat":
         pi = cols.get("position")
         return pi is not None and bool(str(ws_row[pi].value or "").strip())
@@ -752,8 +762,8 @@ def _generate_lead(lead: dict) -> dict:
             processed = mech.process_lead(lead)
         elif _state.get("mode") == "ajanlat":
             processed = ajanlat.process_lead(lead)
-        elif _state.get("mode") == "marka":
-            processed = marka.process_lead(lead)
+        elif _book():
+            processed = _book().process_lead(lead)
         else:
             processed = heg.process_lead(lead)
     finally:
@@ -845,8 +855,8 @@ def _precheck(email: str) -> str:
     for dead, msg in _DEAD_PROVIDERS.items():
         if domain == dead or domain.endswith("." + dead):
             return msg
-    if _state.get("mode") == "marka":
-        return marka.contact_block(addr, _state.get("old_addrs") or {})
+    if _book():
+        return _book().contact_block(addr, _state.get("old_addrs") or {})
     return ""
 
 
@@ -1007,8 +1017,8 @@ def _reconcile_marka(ws, cols) -> dict:
       * on the do-not-contact list, or in an older HU lead file, and not
         yet handled -> "Skip (korábban megkeresve)", never shown
     Rows that already carry a marker are left alone."""
-    book = marka.contacted()
-    dnc = marka.dnc()
+    book = _book().contacted()
+    dnc = _book().dnc()
     old = _state.get("old_addrs") or {}
     restored = skipped = 0
     for r in ws.iter_rows(min_row=2):
@@ -1080,7 +1090,7 @@ def load():
         if not path or not os.path.isfile(path):
             return jsonify({"error": f"Excel fájl nem található: {path}"}), 400
 
-        mode = data.get("mode") if data.get("mode") in ("mech", "ajanlat", "marka") else "builders"
+        mode = data.get("mode") if data.get("mode") in ("mech", "ajanlat", "marka", "terv") else "builders"
         wb, ws, cols = _load_excel(path, mode)
         if "email" not in cols:
             return jsonify({"error": "Nem találok Email oszlopot ebben a fájlban."}), 400
@@ -1088,9 +1098,9 @@ def load():
         account = _resolve_account(data)
         _state.update({"excel_path": path, "wb": wb, "ws": ws, "cols": cols,
                        "current_row": None, "mode": mode,
-                       "old_addrs": (marka.old_file_addresses(exclude=path)
-                                     if mode == "marka" else {})})
-        if mode == "marka":
+                       "old_addrs": (_BOOK_MODES[mode].old_file_addresses(exclude=path)
+                                     if mode in _BOOK_MODES else {})})
+        if mode in _BOOK_MODES:
             _reconcile_marka(ws, cols)
         # Row-keyed cache is meaningless against a different sheet.
         _clear_prefetch()
@@ -1211,9 +1221,9 @@ def _check_replies_sweep(ws, cols) -> dict:
         # Márka mode keeps watching after its last follow-up: a reply that
         # comes in a week later still has to count in the reply rate and
         # still has to stop us writing again.
-        if _state.get("mode") != "marka" and _steps_done(ws, cols, row) >= _max_step():
+        if not _book() and _steps_done(ws, cols, row) >= _max_step():
             continue
-        if _state.get("mode") == "marka" and not _row_in_mode(r, cols):
+        if _book() and not _row_in_mode(r, cols):
             continue
         thread_id, _ = _row_thread(ws, cols, row)
         if not thread_id:
@@ -1368,7 +1378,9 @@ def followup_preview():
             except Exception as e:
                 warn = f"Nem tudom kiolvasni az eredeti tárgyat: {str(e)[:70]}"
         if not subject:
-            if _state.get("mode") == "marka":
+            if _state.get("mode") == "terv":
+                subject = "Re: " + terv.subject()
+            elif _state.get("mode") == "marka":
                 mk = (str(ws.cell(row=row, column=cols["make"] + 1).value or "")
                       if "make" in cols else "")
                 subject = "Re: " + marka.subject(mk)
@@ -1391,7 +1403,7 @@ def followup_preview():
             "email": str(ws.cell(row=row, column=cols["email"] + 1).value or ""),
             "name": name, "account": account,
             "subject": subject,
-            "body": (marka.followup_body(step) if _state.get("mode") == "marka"
+            "body": (_book().followup_body(step) if _book()
                      else mech.followup_body(step, first) if _state.get("mode") == "mech"
                      else ajanlat.followup_body(
                          step, first,
@@ -1498,10 +1510,10 @@ def send_followup():
         marker = f"F{step} {datetime.now():%Y-%m-%d %H:%M} [{account}]"
         ws.cell(row=row, column=cols["fups"] + 1,
                 value=f"{cell}; {marker}" if cell else marker)
-        if _state.get("mode") == "marka":
+        if _book():
             # Same reason as the first send: a lost sheet must never lead
             # to a second follow-up.
-            marka.update_contacted(to, fups=f"{cell}; {marker}" if cell else marker)
+            _book().update_contacted(to, fups=f"{cell}; {marker}" if cell else marker)
         _save_wb()
 
         return jsonify({"ok": True, "row": row, "step": step, "account": account,
@@ -1579,7 +1591,7 @@ def send():
         # Márka mode: the never-twice rule is checked again on the address
         # actually being sent to, in case it was edited in the browser or
         # another run sent to it in the meantime.
-        if _state.get("mode") == "marka":
+        if _book():
             stop = _precheck(to)
             if stop:
                 return jsonify({"error": stop}), 400
@@ -1590,10 +1602,10 @@ def send():
         msg_id = res["id"]
         _log_send(account)
         sent_marker = f"Sent {datetime.now():%Y-%m-%d %H:%M} [{account}]"
-        if _state.get("mode") == "marka":
+        if _book():
             # Written BEFORE the sheet, so even if the sheet save fails or is
             # later overwritten, the send is on record (see _reconcile_marka).
-            marka.add_contacted(to, sent_marker,
+            _book().add_contacted(to, sent_marker,
                                 f"{res.get('thread_id','')}|{res.get('message_id','')}")
 
         # Timestamped + account-tagged marker so the daily cap can tell
@@ -1662,7 +1674,7 @@ def replies():
             })
         out.sort(key=lambda d: (bool(d["type"]), d["row"]))
         return jsonify({"ok": True, "replies": out,
-                         "types": {k: v[0] for k, v in marka.REPLY_TYPES.items()}})
+                         "types": {k: v[0] for k, v in (_book() or marka).REPLY_TYPES.items()}})
     except Exception as e:
         import traceback; traceback.print_exc()
         return jsonify({"error": str(e)}), 500
@@ -1677,15 +1689,15 @@ def set_reply_type():
         data = request.get_json() or {}
         row = int(data.get("row") or 0)
         kind = data.get("type")
-        if ws is None or "reply_type" not in cols or not row or kind not in marka.REPLY_TYPES:
+        if ws is None or "reply_type" not in cols or not row or kind not in (_book() or marka).REPLY_TYPES:
             return jsonify({"error": "Hibás kérés."}), 400
-        label, nxt = marka.REPLY_TYPES[kind]
+        label, nxt = (_book() or marka).REPLY_TYPES[kind]
         if not _has_replied(ws, cols, row):
             _mark_replied(ws, cols, row)
         ws.cell(row=row, column=cols["reply_type"] + 1, value=label)
         ws.cell(row=row, column=cols["next_step"] + 1, value=nxt)
         if kind == "optout":
-            marka.add_dnc(str(ws.cell(row=row, column=cols["email"] + 1).value or ""))
+            (_book() or marka).add_dnc(str(ws.cell(row=row, column=cols["email"] + 1).value or ""))
         _save_wb()
         return jsonify({"ok": True, "row": row, "type": label, "next": nxt,
                          "remaining": len(_followup_queue(ws, cols))})

@@ -48,6 +48,8 @@ DNC_PATH = _HERE / "do_not_contact.json"
 # a few lost leads is cheaper than a second "first" email.
 _OLD_FILE_DIRS = (
     Path(r"C:\Users\pirin\OneDrive\Asztali gép"),
+    Path(r"C:\Users\pirin\OneDrive\Asztali gép\Leads\Hungary"),
+    Path(r"C:\Users\pirin\OneDrive\Asztali gép\Leads\Archive"),
     Path(r"C:\Users\pirin\Downloads"),
 )
 _OLD_FILE_RE = re.compile(r"hun|magyar|ajanlat|mech", re.IGNORECASE)
@@ -259,7 +261,7 @@ def update_contacted(email: str, **fields) -> None:
     _write_contacted(d)
 
 
-def old_file_addresses(exclude: str = "") -> dict:
+def old_file_addresses(exclude: str = "", skip: tuple = ("markaszerviz",)) -> dict:
     """address -> file name, for every address in the older HU lead files.
     The márkaszerviz files themselves are skipped (their sends are in
     marka_contacted.json), so a sheet never blocks its own rows."""
@@ -270,7 +272,7 @@ def old_file_addresses(exclude: str = "") -> dict:
             continue
         for f in d.glob("*.xlsx"):
             name = f.name
-            if name.startswith("~$") or "markaszerviz" in name.lower():
+            if name.startswith("~$") or any(w in name.lower() for w in skip):
                 continue
             if not _OLD_FILE_RE.search(name):
                 continue

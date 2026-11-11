@@ -186,12 +186,13 @@
         <option value="builders">Építőipar (eredeti levél)</option>
         <option value="ajanlat">Ajánlatkészítő hirdetések</option>
         <option value="marka">Márkaszervizek</option>
+        <option value="terv">Tervolvasó (kivitelezők)</option>
       </select>
     </div>
     <label for="path-input">Excel fájl</label>
     <div class="row">
-      <input type="text" id="path-input" value="C:\Users\pirin\Downloads\hun_all_email_leads 10 19.xlsx"
-             placeholder="C:\Users\pirin\Downloads\hun_all_email_leads 10 19.xlsx"/>
+      <input type="text" id="path-input" value="C:\Users\pirin\OneDrive\Asztali gép\Leads\Hungary\hun_all_email_leads 10 19.xlsx"
+             placeholder="C:\Users\pirin\OneDrive\Asztali gép\Leads\Hungary\hun_all_email_leads 10 19.xlsx"/>
       <button id="load-btn" onclick="loadFile()">Betöltés</button>
     </div>
 
@@ -351,11 +352,12 @@
 
     const DEFAULT_PATHS = {
       // One combined file (10-19 export, send history carried over from 10-08); each campaign only sees its own trade.
-      mech:     "C:\\Users\\pirin\\Downloads\\hun_all_email_leads 10 19.xlsx",
-      builders: "C:\\Users\\pirin\\Downloads\\hun_all_email_leads 10 19.xlsx",
-      ajanlat:  "C:\\Users\\pirin\\Downloads\\ajanlatkeszito_leadek.xlsx",
+      mech:     "C:\\Users\\pirin\\OneDrive\\Asztali gép\\Leads\\Hungary\\hun_all_email_leads 10 19.xlsx",
+      builders: "C:\\Users\\pirin\\OneDrive\\Asztali gép\\Leads\\Hungary\\hun_all_email_leads 10 19.xlsx",
+      ajanlat:  "C:\\Users\\pirin\\OneDrive\\Asztali gép\\Leads\\Hungary\\ajanlatkeszito_leadek.xlsx",
       // Merged file: the 11-04 list with its send history, plus the new rows.
-      marka:    "C:\\Users\\pirin\\Downloads\\leads-markaszerviz-merged.xlsx",
+      marka:    "C:\\Users\\pirin\\OneDrive\\Asztali gép\\Leads\\Hungary\\leads-markaszerviz-merged.xlsx",
+      terv:     "C:\\Users\\pirin\\OneDrive\\Asztali gép\\Leads\\Hungary\\leads-tervolvaso.xlsx",
     };
 
     // A path remembered from before a list was replaced; the default wins over it.
@@ -368,6 +370,8 @@
       try {
         let saved = localStorage.getItem("path4_" + mode);
         if (saved && RETIRED_PATHS.some(f => saved.endsWith(f))) saved = null;
+        // Lead sheets moved out of Downloads into Asztali gép\Leads\Hungary (2026-11-08).
+        if (saved && saved.includes("\\Downloads\\")) saved = null;
         document.getElementById("path-input").value = saved || DEFAULT_PATHS[mode];
       } catch (e) {
         document.getElementById("path-input").value = DEFAULT_PATHS[mode];
@@ -408,8 +412,8 @@
       document.getElementById("worker-card").style.display = "block";
       document.getElementById("fup-card").style.display = "block";
       loadFollowups();
-      document.getElementById("rep-card").style.display = (mode === "marka") ? "block" : "none";
-      if (mode === "marka") loadReplies();
+      document.getElementById("rep-card").style.display = (mode === "marka" || mode === "terv") ? "block" : "none";
+      if (mode === "marka" || mode === "terv") loadReplies();
     }
 
     // ── Follow-up queue ───────────────────────────────────────────────
@@ -457,7 +461,7 @@
       }
 
       showDelivery(res.delivery);
-      if (document.getElementById("mode-select").value === "marka") loadReplies();
+      if (["marka", "terv"].includes(document.getElementById("mode-select").value)) loadReplies();
 
       const list = document.getElementById("fup-list");
       list.innerHTML = "";
